@@ -34,7 +34,11 @@ export default function Drivers() {
     load();
   };
   const remove = async (d: Driver) => {
-    await supabase.from('drivers').delete().eq('id', d.id);
+    const { error } = await supabase.from('drivers').delete().eq('id', d.id);
+    if (error) {
+      toast(error.code === '23503' ? 'لا يمكن حذف حساب له رحلات أو تقييمات مسجّلة — استخدم إيقاف الحساب بدلاً من ذلك' : 'تعذّر حذف السائق');
+      return;
+    }
     toast('تم حذف السائق');
     load();
   };

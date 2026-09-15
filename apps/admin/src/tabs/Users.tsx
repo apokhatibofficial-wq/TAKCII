@@ -30,7 +30,11 @@ export default function Users() {
     load();
   };
   const remove = async (r: Rider) => {
-    await supabase.from('riders').delete().eq('id', r.id);
+    const { error } = await supabase.from('riders').delete().eq('id', r.id);
+    if (error) {
+      toast(error.code === '23503' ? 'لا يمكن حذف حساب له رحلات أو تقييمات مسجّلة — استخدم إيقاف الحساب بدلاً من ذلك' : 'تعذّر حذف المستخدم');
+      return;
+    }
     toast('تم حذف المستخدم');
     load();
   };
