@@ -178,3 +178,29 @@ alter table pricing enable row level security;
 alter table pricing_settings enable row level security;
 alter table admin_settings enable row level security;
 alter table admin_pending_changes enable row level security;
+
+-- Stage 2 (rider auth): a rider/driver can create and manage only their own
+-- profile row, matched against the Supabase Auth user they just verified as.
+-- Broader read access (e.g. riders seeing active drivers on the map) lands
+-- with the features that need it, not speculatively here.
+create policy "riders select own row" on riders for select using (auth.uid() = id);
+create policy "riders insert own row" on riders for insert with check (auth.uid() = id);
+create policy "riders update own row" on riders for update using (auth.uid() = id) with check (auth.uid() = id);
+
+create policy "drivers select own row" on drivers for select using (auth.uid() = id);
+create policy "drivers insert own row" on drivers for insert with check (auth.uid() = id);
+create policy "drivers update own row" on drivers for update using (auth.uid() = id) with check (auth.uid() = id);
+
+-- Lets the signup form check "is this username taken" pre-verification without
+-- granting any broader read access to riders/drivers (SECURITY DEFINER, returns
+-- only a boolean — never exposes a row).
+create or replace function is_username_taken(candidate text)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists(select 1 from riders where username = candidate)
+      or exists(select 1 from drivers where username = candidate);
+$$;
+grant execute on function is_username_taken(text) to anon, authenticated;

@@ -1,19 +1,49 @@
 import { useState, type CSSProperties } from 'react';
+import { supabase } from '../lib/supabase';
+
+interface LoginProps {
+  onSignup: () => void;
+  onLoggedIn: () => void;
+}
 
 // Ported from index.html's uLoginScreen block — same copy, same layout, same
-// gradient card. Real authentication (Supabase) lands in Stage 2; doLogin below
-// is a stand-in that only proves the error-message slot renders correctly.
-export default function Login({ onSignup }: { onSignup: () => void }) {
+// gradient card. doLogin resolves "username or phone" to an email via the
+// resolve-login-email Edge Function (Supabase Auth only signs in by email),
+// then signs in for real.
+export default function Login({ onSignup, onLoggedIn }: LoginProps) {
   const [loginId, setLoginId] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const doLogin = () => {
+  const doLogin = async () => {
     if (!loginId.trim() || !loginPass) {
       setLoginError('أدخل اسم المستخدم أو رقم الهاتف وكلمة المرور.');
       return;
     }
-    setLoginError('تسجيل الدخول الحقيقي يبدأ في المرحلة الثانية.');
+    setBusy(true);
+    setLoginError('');
+    try {
+      const { data, error } = await supabase.functions.invoke<{ email: string; status: string }>('resolve-login-email', {
+        body: { loginId: loginId.trim(), role: 'rider' }
+      });
+      if (error || !data?.email) {
+        setLoginError('لا يوجد حساب بهذا الاسم أو الرقم.');
+        return;
+      }
+      if (data.status !== 'active') {
+        setLoginError('هذا الحساب موقوف — راجع الإدارة.');
+        return;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password: loginPass });
+      if (signInError) {
+        setLoginError('كلمة المرور غير صحيحة.');
+        return;
+      }
+      onLoggedIn();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -77,7 +107,9 @@ export default function Login({ onSignup }: { onSignup: () => void }) {
           </div>
         )}
 
-        <button onClick={doLogin} style={primaryBtnStyle}>دخول</button>
+        <button onClick={doLogin} disabled={busy} style={{ ...primaryBtnStyle, opacity: busy ? 0.6 : 1 }}>
+          {busy ? '...جارٍ الدخول' : 'دخول'}
+        </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 12px' }}>
           <span style={{ flex: 1, height: 1, background: '#f0ece0' }} />
