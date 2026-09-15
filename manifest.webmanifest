@@ -1,0 +1,22 @@
+{
+  "name": "TAK-C.TAXI — تكسي",
+  "short_name": "TAK-C",
+  "description": "اطلب أقرب تكسي في الدانا وسرمدا — يعمل بدون متجر تطبيقات وحتى مع شبكة ضعيفة.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "takc-taxi",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#fde403",
+  "theme_color": "#181619",
+  "categories": ["travel", "navigation"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
