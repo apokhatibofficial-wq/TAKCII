@@ -1,0 +1,52 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-cream);
+  -webkit-tap-highlight-color: transparent;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  font-family: var(--font-body);
+  color: var(--color-black);
+}
+a { color: var(--color-green); text-decoration: none; }
+a:hover { color: #026b2c; }
+input, button, textarea, select { font-family: inherit; }
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: 1px;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #d8d2c2; border-radius: 6px; }
+
+#root { min-height: 100vh; min-height: 100dvh; }
+
+/* Mobile-first: fills the real viewport once installed on a phone. Above phone
+   width we preview it as a centered "app" column instead of stretching full-bleed
+   on a desktop browser — the prototype's 430px phone frame, minus its demo chrome. */
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+@media (min-width: 480px) {
+  body {
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px;
+    background: var(--color-cream);
+  }
+  #root { min-height: auto; width: 100%; max-width: 430px; }
+  .app-shell {
+    min-height: min(880px, calc(100vh - 48px));
+    border-radius: 30px;
+    box-shadow: 0 24px 60px -24px rgba(24, 22, 25, .45), 0 0 0 1px rgba(24, 22, 25, .08);
+  }
+}
+
+@keyframes sp-mask { 0% { clip-path: inset(0 0 0 100%); } 100% { clip-path: inset(0 0 0 0); } }
+@keyframes takc-rise { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

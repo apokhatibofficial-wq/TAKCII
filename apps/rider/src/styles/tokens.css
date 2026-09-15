@@ -1,0 +1,21 @@
+/* Brand identity — fixed values, mirrors packages/shared/src/tokens.ts. Do not
+   invent new colors here; every screen should read from these variables. */
+:root {
+  --color-black: #181619;
+  --color-yellow: #fde403;
+  --color-cream: #f4efe1;
+  --color-white: #fff;
+  --color-green: #008637;
+
+  --font-display: 'FreePalestine', 'Tajawal', sans-serif;
+  --font-button: 'Tajawal', sans-serif;
+  --font-body: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}
+
+@font-face {
+  font-family: 'FreePalestine';
+  src: url('/assets/FreePalestine-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

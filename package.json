@@ -1,0 +1,14 @@
+{
+  "name": "tak-c-taxi",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:rider": "npm run dev -w apps/rider",
+    "build:rider": "npm run build -w apps/rider",
+    "typecheck:rider": "npm run typecheck -w apps/rider"
+  }
+}
