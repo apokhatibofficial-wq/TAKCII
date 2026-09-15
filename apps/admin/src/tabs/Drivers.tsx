@@ -34,9 +34,10 @@ export default function Drivers() {
     load();
   };
   const remove = async (d: Driver) => {
-    const { error } = await supabase.from('drivers').delete().eq('id', d.id);
+    const { error } = await supabase.functions.invoke('admin-delete-account', { body: { id: d.id } });
     if (error) {
-      toast(error.code === '23503' ? 'لا يمكن حذف حساب له رحلات أو تقييمات مسجّلة — استخدم إيقاف الحساب بدلاً من ذلك' : 'تعذّر حذف السائق');
+      const status = (error as { context?: { status?: number } }).context?.status;
+      toast(status === 409 ? 'لا يمكن حذف حساب له رحلات أو تقييمات مسجّلة — استخدم إيقاف الحساب بدلاً من ذلك' : 'تعذّر حذف السائق');
       return;
     }
     toast('تم حذف السائق');

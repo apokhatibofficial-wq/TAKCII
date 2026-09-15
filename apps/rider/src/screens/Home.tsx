@@ -1,9 +1,11 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import MapView, { type MapMarker } from '../components/MapView';
 import RidePanel from '../components/RidePanel';
+import AdOverlay from '../components/AdOverlay';
 import { usePlacesSearch } from '../hooks/usePlacesSearch';
 import { useFare } from '../hooks/useFare';
 import { useRide } from '../hooks/useRide';
+import { useActiveAd } from '../hooks/useActiveAd';
 
 interface Pickup {
   lat: number;
@@ -24,6 +26,8 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [destId, setDestId] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const [adDismissed, setAdDismissed] = useState(false);
+  const ad = useActiveAd();
 
   const from = useMemo<[number, number]>(() => [pickup.lat, pickup.lng], [pickup.lat, pickup.lng]);
   const { results, routes } = usePlacesSearch(from, query);
@@ -78,7 +82,9 @@ export default function Home() {
   };
 
   return (
-    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <>
+      {ad && !adDismissed && <AdOverlay ad={ad} onClose={() => setAdDismissed(true)} />}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <MapView markers={markers} routeGeometry={destRoute?.geometry ?? null} />
       </div>
@@ -234,7 +240,8 @@ export default function Home() {
           </>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
