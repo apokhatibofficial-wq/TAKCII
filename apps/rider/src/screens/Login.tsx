@@ -119,18 +119,6 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
 
         <button onClick={onSignup} style={secondaryBtnStyle}>إنشاء حساب جديد</button>
       </div>
-
-      <div
-        style={{
-          marginTop: 'auto',
-          paddingTop: 18,
-          textAlign: 'center',
-          font: "400 11.5px/1.6 'IBM Plex Sans Arabic',sans-serif",
-          color: '#8b8b8b'
-        }}
-      >
-        حساب تجريبي: <span style={{ direction: 'ltr', display: 'inline-block' }}>mohamad / 1234</span>
-      </div>
     </div>
   );
 }
