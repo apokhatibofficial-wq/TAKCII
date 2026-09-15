@@ -18,20 +18,20 @@ const STATUS_TEXT: Record<string, string> = {
 
 // Ported from index.html's stSearching / stMatched / stDone blocks — same
 // copy, same layout. Trip progress here is driven by useRide's Realtime
-// subscription (currently fed by a Stage-4 demo timer; real driver actions
-// replace that feed in Stage 5 without this component changing).
+// subscription, fed by the driver app's accept/reject/trip actions.
 export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onCancel: () => void; onReset: () => void }) {
   const [driver, setDriver] = useState<DriverInfo | null>(null);
-  const [holdSearching, setHoldSearching] = useState(true);
   const { pricing } = useFare();
 
+  // The "riders view matched driver" RLS policy only opens once status is
+  // toPickup or later — driverId is already set during 'dispatched' (the
+  // negotiation window) but reads are blocked until the driver accepts, so
+  // this must re-check on status changes too, not just when driverId changes
+  // (the same driver staying assigned across dispatched -> toPickup wouldn't
+  // otherwise trigger a re-fetch).
+  const driverVisible = ride.driverId != null && ride.status !== 'searching' && ride.status !== 'dispatched';
   useEffect(() => {
-    const t = setTimeout(() => setHoldSearching(false), 2200);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (!ride.driverId) {
+    if (!driverVisible) {
       setDriver(null);
       return;
     }
@@ -39,7 +39,7 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
     supabase
       .from('drivers')
       .select('name,car,plate,phone')
-      .eq('id', ride.driverId)
+      .eq('id', ride.driverId as string)
       .maybeSingle()
       .then(({ data }) => {
         if (!cancelled && data) setDriver(data);
@@ -47,9 +47,9 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
     return () => {
       cancelled = true;
     };
-  }, [ride.driverId]);
+  }, [ride.driverId, driverVisible]);
 
-  const isSearching = ride.status === 'searching' || (ride.driverId != null && holdSearching);
+  const isSearching = ride.status === 'searching' || ride.status === 'dispatched';
 
   if (isSearching) {
     return (
@@ -62,7 +62,7 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
           <div style={{ flex: 1 }}>
             <div style={{ font: "800 17px/1.3 FreePalestine,Tajawal,sans-serif" }}>نبحث عن أقرب سائق…</div>
             <div style={{ font: "400 12.5px/1.6 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
-              {ride.driverId ? 'وجدنا سائقاً، نؤكد الطلب…' : 'نتحقق من السائقين المتصلين قربك'}
+              {ride.status === 'dispatched' ? 'وجدنا سائقاً، بانتظار تأكيده…' : 'نتحقق من السائقين المتصلين قربك'}
             </div>
           </div>
         </div>

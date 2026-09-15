@@ -12,6 +12,7 @@
     "typecheck:rider": "npm run typecheck -w apps/rider",
     "dev:admin": "npm run dev -w apps/admin",
     "build:admin": "npm run build -w apps/admin",
-    "typecheck:admin": "npm run typecheck -w apps/admin"
+    "typecheck:admin": "npm run typecheck -w apps/admin",
+    "typecheck:driver": "npm run typecheck -w apps/driver"
   }
 }

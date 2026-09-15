@@ -3,7 +3,7 @@
 
 export type UserStatus = 'active' | 'suspended';
 export type DriverStatus = 'pending' | 'active' | 'suspended';
-export type RideStatus = 'searching' | 'toPickup' | 'arrived' | 'onTrip' | 'done' | 'cancelled';
+export type RideStatus = 'searching' | 'dispatched' | 'toPickup' | 'arrived' | 'onTrip' | 'done' | 'cancelled';
 export type MessageAudience = 'all' | 'users' | 'drivers' | 'one';
 export type AdAudience = 'all' | 'users' | 'drivers';
 export type CurrencyCode = 'SYP' | 'TRY' | 'USD';
@@ -68,7 +68,9 @@ export interface Ride {
   waitRuns: number;
   waitFare: number;
   etaMinutes: number | null;
+  declinedDriverIds: string[];
   requestedAt: string;
+  dispatchedAt: string | null;
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;

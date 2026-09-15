@@ -377,9 +377,11 @@ export type Database = {
           arrived_at: string | null
           cancelled_at: string | null
           completed_at: string | null
+          declined_driver_ids: string[]
           dest_lat: number
           dest_lng: number
           dest_name: string
+          dispatched_at: string | null
           driver_id: string | null
           eta_minutes: number | null
           fare_amount: number | null
@@ -403,9 +405,11 @@ export type Database = {
           arrived_at?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
+          declined_driver_ids?: string[]
           dest_lat: number
           dest_lng: number
           dest_name: string
+          dispatched_at?: string | null
           driver_id?: string | null
           eta_minutes?: number | null
           fare_amount?: number | null
@@ -429,9 +433,11 @@ export type Database = {
           arrived_at?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
+          declined_driver_ids?: string[]
           dest_lat?: number
           dest_lng?: number
           dest_name?: string
+          dispatched_at?: string | null
           driver_id?: string | null
           eta_minutes?: number | null
           fare_amount?: number | null
@@ -473,11 +479,85 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_ride: {
+        Args: { p_ride_id: string }
+        Returns: {
+          arrived_at: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          declined_driver_ids: string[]
+          dest_lat: number
+          dest_lng: number
+          dest_name: string
+          dispatched_at: string | null
+          driver_id: string | null
+          eta_minutes: number | null
+          fare_amount: number | null
+          fare_currency: Database["public"]["Enums"]["currency_code"] | null
+          id: string
+          km: number | null
+          matched_at: string | null
+          minutes: number | null
+          pickup_lat: number
+          pickup_lng: number
+          pickup_name: string
+          requested_at: string
+          rider_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ride_status"]
+          wait_fare: number
+          wait_runs: number
+          wait_seconds: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rides"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_admin: { Args: never; Returns: boolean }
       is_username_taken: { Args: { candidate: string }; Returns: boolean }
       nearest_available_driver: {
-        Args: { p_lat: number; p_lng: number }
+        Args: { p_exclude?: string[]; p_lat: number; p_lng: number }
         Returns: string
+      }
+      reject_ride: {
+        Args: { p_ride_id: string }
+        Returns: {
+          arrived_at: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          declined_driver_ids: string[]
+          dest_lat: number
+          dest_lng: number
+          dest_name: string
+          dispatched_at: string | null
+          driver_id: string | null
+          eta_minutes: number | null
+          fare_amount: number | null
+          fare_currency: Database["public"]["Enums"]["currency_code"] | null
+          id: string
+          km: number | null
+          matched_at: string | null
+          minutes: number | null
+          pickup_lat: number
+          pickup_lng: number
+          pickup_name: string
+          requested_at: string
+          rider_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ride_status"]
+          wait_fare: number
+          wait_runs: number
+          wait_seconds: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rides"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       request_ride: {
         Args: {
@@ -496,9 +576,11 @@ export type Database = {
           arrived_at: string | null
           cancelled_at: string | null
           completed_at: string | null
+          declined_driver_ids: string[]
           dest_lat: number
           dest_lng: number
           dest_name: string
+          dispatched_at: string | null
           driver_id: string | null
           eta_minutes: number | null
           fare_amount: number | null
@@ -533,6 +615,7 @@ export type Database = {
       message_audience: "all" | "users" | "drivers" | "one"
       ride_status:
         | "searching"
+        | "dispatched"
         | "toPickup"
         | "arrived"
         | "onTrip"
@@ -672,6 +755,7 @@ export const Constants = {
       message_audience: ["all", "users", "drivers", "one"],
       ride_status: [
         "searching",
+        "dispatched",
         "toPickup",
         "arrived",
         "onTrip",
