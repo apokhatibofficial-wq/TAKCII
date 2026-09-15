@@ -37,14 +37,7 @@ export default function App() {
         <OtpVerify payload={pendingSignup} onBack={() => setScreen('signup')} onVerified={() => setScreen('home')} />
       )}
 
-      {screen === 'home' && (
-        <Home
-          onRequestRide={(destId, destName) => {
-            // Wired for real in Stage 4 (realtime ride flow / matching).
-            console.info('ride requested (stub):', destId, destName);
-          }}
-        />
-      )}
+      {screen === 'home' && <Home />}
     </div>
   );
 }

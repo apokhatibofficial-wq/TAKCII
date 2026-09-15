@@ -456,6 +456,56 @@ export type Database = {
     }
     Functions: {
       is_username_taken: { Args: { candidate: string }; Returns: boolean }
+      nearest_available_driver: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: string
+      }
+      request_ride: {
+        Args: {
+          p_dest_lat: number
+          p_dest_lng: number
+          p_dest_name: string
+          p_fare_amount: number
+          p_fare_currency: Database["public"]["Enums"]["currency_code"]
+          p_km: number
+          p_minutes: number
+          p_pickup_lat: number
+          p_pickup_lng: number
+          p_pickup_name: string
+        }
+        Returns: {
+          arrived_at: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          dest_lat: number
+          dest_lng: number
+          dest_name: string
+          driver_id: string | null
+          eta_minutes: number | null
+          fare_amount: number | null
+          fare_currency: Database["public"]["Enums"]["currency_code"] | null
+          id: string
+          km: number | null
+          matched_at: string | null
+          minutes: number | null
+          pickup_lat: number
+          pickup_lng: number
+          pickup_name: string
+          requested_at: string
+          rider_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ride_status"]
+          wait_fare: number
+          wait_runs: number
+          wait_seconds: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rides"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       ad_audience: "all" | "users" | "drivers"

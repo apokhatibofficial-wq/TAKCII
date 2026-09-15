@@ -1,7 +1,9 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import MapView, { type MapMarker } from '../components/MapView';
+import RidePanel from '../components/RidePanel';
 import { usePlacesSearch } from '../hooks/usePlacesSearch';
 import { useFare } from '../hooks/useFare';
+import { useRide } from '../hooks/useRide';
 
 interface Pickup {
   lat: number;
@@ -13,22 +15,20 @@ interface Pickup {
 // screen is meaningful before GPS permission is granted.
 const DEFAULT_PICKUP: Pickup = { lat: 36.2112, lng: 36.759, name: 'ساحة الدانا الرئيسية' };
 
-interface HomeProps {
-  onRequestRide: (destId: string, destName: string, pickup: Pickup) => void;
-}
-
-// Ported from index.html's uHome / stIdle block: map + top bar + bottom sheet
-// with search, results (real OSRM distance), selected destination, and a live
-// fare estimate. Ride-request wiring (searching/matched/trip) lands in Stage 4.
-export default function Home({ onRequestRide }: HomeProps) {
+// Ported from index.html's uHome block: map + top bar + bottom sheet. The
+// sheet shows the search/pricing UI (stIdle) when there's no active ride, and
+// hands off to RidePanel (stSearching/stMatched/stDone) once one exists.
+export default function Home() {
   const [pickup, setPickup] = useState<Pickup>(DEFAULT_PICKUP);
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState('');
   const [destId, setDestId] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
 
   const from = useMemo<[number, number]>(() => [pickup.lat, pickup.lng], [pickup.lat, pickup.lng]);
   const { results, routes } = usePlacesSearch(from, query);
-  const { format, fareFor, settings } = useFare();
+  const { format, fareFor, pricing, settings } = useFare();
+  const { ride, requestRide, cancelRide, resetRide } = useRide();
 
   const dest = useMemo(() => results.find((p) => p.id === destId) ?? null, [results, destId]);
   const destRoute = dest ? routes[dest.id] : null;
@@ -54,6 +54,28 @@ export default function Home({ onRequestRide }: HomeProps) {
 
   const fare = dest && destRoute ? fareFor(destRoute.km, destRoute.minutes) : null;
   const fareVisible = settings?.showToRiders !== false;
+
+  const doRequestRide = async () => {
+    if (!dest || !destRoute || fare == null || !pricing) return;
+    setRequesting(true);
+    try {
+      await requestRide({
+        pickupName: pickup.name,
+        pickupLat: pickup.lat,
+        pickupLng: pickup.lng,
+        destName: dest.name,
+        destLat: dest.lat,
+        destLng: dest.lng,
+        km: destRoute.km,
+        minutes: destRoute.minutes,
+        fareAmount: fare,
+        fareCurrency: pricing.currency
+      });
+      setDestId(null);
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   return (
     <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -101,110 +123,116 @@ export default function Home({ onRequestRide }: HomeProps) {
       >
         <div style={{ width: 44, height: 4, borderRadius: 4, background: '#e2dcca', margin: '0 auto 14px' }} />
 
-        <div style={{ font: "800 18px/1.2 FreePalestine,Tajawal,sans-serif", marginBottom: 12 }}>إلى أين تريد الذهاب؟</div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 9,
-            background: '#faf8f2',
-            border: '1.5px solid #e7e1d0',
-            borderRadius: 14,
-            padding: '12px 13px'
-          }}
-        >
-          <span style={{ color: '#575757' }}>⌕</span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="اكتب اسم المنطقة أو الشارع"
-            style={{ flex: 1, border: 'none', background: 'none', fontSize: 14 }}
-          />
-        </div>
+        {ride ? (
+          <RidePanel ride={ride} onCancel={cancelRide} onReset={resetRide} />
+        ) : (
+          <>
+            <div style={{ font: "800 18px/1.2 FreePalestine,Tajawal,sans-serif", marginBottom: 12 }}>إلى أين تريد الذهاب؟</div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 9,
+                background: '#faf8f2',
+                border: '1.5px solid #e7e1d0',
+                borderRadius: 14,
+                padding: '12px 13px'
+              }}
+            >
+              <span style={{ color: '#575757' }}>⌕</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="اكتب اسم المنطقة أو الشارع"
+                style={{ flex: 1, border: 'none', background: 'none', fontSize: 14 }}
+              />
+            </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
-          {results.map((r) => {
-            const route = routes[r.id];
-            const distLabel = route
-              ? `${route.km.toFixed(1)} كم · ${Math.max(1, Math.round(route.minutes))} د${route.estimated ? ' (تقديري)' : ' بالسيارة'}`
-              : '… قياس المسار';
-            return (
-              <button
-                key={r.id}
-                onClick={() => {
-                  setDestId(r.id);
-                  setQuery('');
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
+              {results.map((r) => {
+                const route = routes[r.id];
+                const distLabel = route
+                  ? `${route.km.toFixed(1)} كم · ${Math.max(1, Math.round(route.minutes))} د${route.estimated ? ' (تقديري)' : ' بالسيارة'}`
+                  : '… قياس المسار';
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      setDestId(r.id);
+                      setQuery('');
+                    }}
+                    style={resultRowStyle}
+                  >
+                    <span style={resultIconStyle}>◎</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', font: "700 13.5px/1.3 'IBM Plex Sans Arabic',sans-serif" }}>{r.name}</span>
+                      <span style={{ display: 'block', font: "400 11.5px/1.4 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
+                        {(r.kind ? r.kind + ' · ' : '') + r.area} · {distLabel}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {dest && (
+              <div
+                style={{
+                  marginTop: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  background: 'var(--color-cream)',
+                  borderRadius: 14,
+                  padding: '12px 13px'
                 }}
-                style={resultRowStyle}
               >
-                <span style={resultIconStyle}>◎</span>
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: 'var(--color-black)', flex: 'none' }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', font: "700 13.5px/1.3 'IBM Plex Sans Arabic',sans-serif" }}>{r.name}</span>
-                  <span style={{ display: 'block', font: "400 11.5px/1.4 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
-                    {(r.kind ? r.kind + ' · ' : '') + r.area} · {distLabel}
+                  <span style={{ display: 'block', font: "700 13.5px/1.35 'IBM Plex Sans Arabic',sans-serif" }}>{dest.name}</span>
+                  <span style={{ display: 'block', font: "500 11.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
+                    {dest.area}
                   </span>
                 </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {dest && (
-          <div
-            style={{
-              marginTop: 14,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              background: 'var(--color-cream)',
-              borderRadius: 14,
-              padding: '12px 13px'
-            }}
-          >
-            <span style={{ width: 9, height: 9, borderRadius: 2, background: 'var(--color-black)', flex: 'none' }} />
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', font: "700 13.5px/1.35 'IBM Plex Sans Arabic',sans-serif" }}>{dest.name}</span>
-              <span style={{ display: 'block', font: "500 11.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
-                {dest.area}
-              </span>
-            </span>
-            <button onClick={() => setDestId(null)} style={{ background: 'none', border: 'none', color: '#575757', cursor: 'pointer', fontSize: 15 }}>
-              ✕
-            </button>
-          </div>
-        )}
-
-        {dest && fareVisible && fare != null && (
-          <div
-            style={{
-              marginTop: 10,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              background: 'var(--color-black)',
-              color: 'var(--color-cream)',
-              borderRadius: 16,
-              padding: '14px 15px'
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ font: "600 11.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: 'rgba(244,239,225,.65)' }}>
-                السعر التقريبي للرحلة
+                <button onClick={() => setDestId(null)} style={{ background: 'none', border: 'none', color: '#575757', cursor: 'pointer', fontSize: 15 }}>
+                  ✕
+                </button>
               </div>
-            </div>
-            <div style={{ font: "900 22px/1.35 FreePalestine,Tajawal,sans-serif", color: 'var(--color-yellow)', direction: 'ltr', flex: 'none' }}>
-              {format(fare)}
-            </div>
-          </div>
-        )}
+            )}
 
-        <button
-          onClick={() => dest && onRequestRide(dest.id, dest.name, pickup)}
-          disabled={!dest}
-          style={{ ...requestBtnStyle, opacity: dest ? 1 : 0.5, cursor: dest ? 'pointer' : 'not-allowed' }}
-        >
-          اطلب تكسي الآن
-        </button>
+            {dest && fareVisible && fare != null && (
+              <div
+                style={{
+                  marginTop: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  background: 'var(--color-black)',
+                  color: 'var(--color-cream)',
+                  borderRadius: 16,
+                  padding: '14px 15px'
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "600 11.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: 'rgba(244,239,225,.65)' }}>
+                    السعر التقريبي للرحلة
+                  </div>
+                </div>
+                <div style={{ font: "900 22px/1.35 FreePalestine,Tajawal,sans-serif", color: 'var(--color-yellow)', direction: 'ltr', flex: 'none' }}>
+                  {format(fare)}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={doRequestRide}
+              disabled={!dest || requesting}
+              style={{ ...requestBtnStyle, opacity: dest && !requesting ? 1 : 0.5, cursor: dest && !requesting ? 'pointer' : 'not-allowed' }}
+            >
+              {requesting ? '...جارٍ الطلب' : 'اطلب تكسي الآن'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
