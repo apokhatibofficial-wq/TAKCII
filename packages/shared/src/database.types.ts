@@ -59,6 +59,24 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       ads: {
         Row: {
           active: boolean
@@ -455,6 +473,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_admin: { Args: never; Returns: boolean }
       is_username_taken: { Args: { candidate: string }; Returns: boolean }
       nearest_available_driver: {
         Args: { p_lat: number; p_lng: number }

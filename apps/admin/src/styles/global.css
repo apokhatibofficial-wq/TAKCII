@@ -1,0 +1,30 @@
+:root {
+  --color-black: #181619;
+  --color-yellow: #fde403;
+  --color-cream: #f4efe1;
+  --color-white: #fff;
+  --color-green: #008637;
+  --font-display: 'FreePalestine', 'Tajawal', sans-serif;
+  --font-button: 'Tajawal', sans-serif;
+  --font-body: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #f6f4ee;
+  -webkit-tap-highlight-color: transparent;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  font-family: var(--font-body);
+  color: var(--color-black);
+}
+a { color: var(--color-green); text-decoration: none; }
+input, button, textarea, select { font-family: inherit; }
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: 1px;
+}
+button { cursor: pointer; }
+#root { min-height: 100vh; }

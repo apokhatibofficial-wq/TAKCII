@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
   try {
     const { loginId, role } = await req.json();
-    if (!loginId || (role !== 'rider' && role !== 'driver')) {
+    if (!loginId || (role !== 'rider' && role !== 'driver' && role !== 'admin')) {
       return new Response(JSON.stringify({ error: 'loginId and role are required' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
@@ -24,9 +24,29 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const table = role === 'rider' ? 'riders' : 'drivers';
     const id = String(loginId).trim();
 
+    if (role === 'admin') {
+      const { data: adminRow, error: adminErr } = await admin.from('admin_users').select('id').eq('username', id).maybeSingle();
+      if (adminErr || !adminRow) {
+        return new Response(JSON.stringify({ error: 'account_not_found' }), {
+          status: 404,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+        });
+      }
+      const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(adminRow.id);
+      if (authErr || !authUser.user?.email) {
+        return new Response(JSON.stringify({ error: 'account_not_found' }), {
+          status: 404,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify({ email: authUser.user.email, status: 'active' }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const table = role === 'rider' ? 'riders' : 'drivers';
     const { data, error } = await admin
       .from(table)
       .select('email, status')
