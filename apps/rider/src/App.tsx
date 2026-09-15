@@ -3,6 +3,7 @@ import Splash from './screens/Splash';
 import Login from './screens/Login';
 import Signup, { type SignupPayload } from './screens/Signup';
 import OtpVerify from './screens/OtpVerify';
+import Home from './screens/Home';
 
 type Screen = 'login' | 'signup' | 'otp' | 'home';
 
@@ -37,16 +38,12 @@ export default function App() {
       )}
 
       {screen === 'home' && (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-          <div>
-            <div style={{ font: "800 18px/1.3 FreePalestine,Tajawal,sans-serif", marginBottom: 8 }}>
-              تم تسجيل الدخول
-            </div>
-            <div style={{ font: "400 13px/1.7 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
-              الخريطة والبحث والتسعير تُبنى في المرحلة الثالثة.
-            </div>
-          </div>
-        </div>
+        <Home
+          onRequestRide={(destId, destName) => {
+            // Wired for real in Stage 4 (realtime ride flow / matching).
+            console.info('ride requested (stub):', destId, destName);
+          }}
+        />
       )}
     </div>
   );
