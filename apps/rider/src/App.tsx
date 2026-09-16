@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from './lib/supabase';
 import Splash from './screens/Splash';
 import Login from './screens/Login';
 import Signup, { type SignupPayload } from './screens/Signup';
@@ -8,14 +9,34 @@ import Home from './screens/Home';
 type Screen = 'login' | 'signup' | 'otp' | 'home';
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [timerDone, setTimerDone] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [screen, setScreen] = useState<Screen>('login');
   const [pendingSignup, setPendingSignup] = useState<SignupPayload | null>(null);
 
+  // The splash is a full-screen overlay, so it also covers the brief gap
+  // while we check for an already-persisted session — without this check
+  // the app always started at Login, ignoring a perfectly valid saved
+  // session (persistSession is on, but nothing ever read it back on load).
   useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 3400);
+    const t = setTimeout(() => setTimerDone(true), 3400);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setScreen('home');
+      setSessionChecked(true);
+    });
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) setScreen('login');
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const showSplash = !timerDone || !sessionChecked;
 
   return (
     <div className="app-shell" dir="rtl">
