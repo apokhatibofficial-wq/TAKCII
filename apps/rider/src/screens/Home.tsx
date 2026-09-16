@@ -298,10 +298,20 @@ export default function Home() {
               </div>
             )}
 
+            {dest && fare == null && (
+              <div style={{ marginTop: 10, textAlign: 'center', font: "500 12px/1.6 'IBM Plex Sans Arabic',sans-serif", color: '#8b8b8b' }}>
+                جارٍ حساب السعر…
+              </div>
+            )}
+
             <button
               onClick={doRequestRide}
-              disabled={!dest || requesting}
-              style={{ ...requestBtnStyle, opacity: dest && !requesting ? 1 : 0.5, cursor: dest && !requesting ? 'pointer' : 'not-allowed' }}
+              disabled={!dest || !destRoute || fare == null || !pricing || requesting}
+              style={{
+                ...requestBtnStyle,
+                opacity: dest && destRoute && fare != null && pricing && !requesting ? 1 : 0.5,
+                cursor: dest && destRoute && fare != null && pricing && !requesting ? 'pointer' : 'not-allowed'
+              }}
             >
               {requesting ? '...جارٍ الطلب' : 'اطلب تكسي الآن'}
             </button>
