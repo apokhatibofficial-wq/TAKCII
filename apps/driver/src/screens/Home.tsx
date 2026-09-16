@@ -40,18 +40,25 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // hear a ride request, which is the whole point of "صوت عالي".
   const ringPlayer = useAudioPlayer(RINGTONE);
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true });
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
   }, []);
   useEffect(() => {
-    ringPlayer.loop = true;
-    ringPlayer.volume = 1;
-    if (ride.incoming && !ride.muted) {
-      ringPlayer.seekTo(0).then(() => ringPlayer.play());
-    } else {
-      ringPlayer.pause();
+    try {
+      ringPlayer.loop = true;
+      ringPlayer.volume = 1;
+      if (ride.incoming && !ride.muted) {
+        ringPlayer
+          .seekTo(0)
+          .then(() => ringPlayer.play())
+          .catch(() => undefined);
+      } else {
+        ringPlayer.pause();
+      }
+    } catch {
+      // A ride request that rings silently is far better than one that
+      // crashes the app — never let the tone break the actual negotiation.
     }
   }, [ride.incoming, ride.muted, ringPlayer]);
-  useEffect(() => () => ringPlayer.remove(), [ringPlayer]);
 
   const activeRiderId = ride.incoming?.riderId ?? ride.trip?.riderId ?? null;
   useEffect(() => {
