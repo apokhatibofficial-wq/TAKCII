@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import MapView, { type MapMarker } from '../components/MapView';
 import RidePanel from '../components/RidePanel';
 import AdOverlay from '../components/AdOverlay';
@@ -24,6 +24,7 @@ const DEFAULT_PICKUP: Pickup = { lat: 36.2112, lng: 36.759, name: 'ساحة ال
 export default function Home() {
   const [pickup, setPickup] = useState<Pickup>(DEFAULT_PICKUP);
   const [locating, setLocating] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [query, setQuery] = useState('');
   const [dest, setDest] = useState<SearchPlace | null>(null);
   const [manualRoute, setManualRoute] = useState<RouteResult | null>(null);
@@ -77,12 +78,17 @@ export default function Home() {
     setLocating(true);
     let best: GeolocationPosition | null = null;
     let done = false;
-    const finish = () => {
+    const finish = (denied?: boolean) => {
       if (done) return;
       done = true;
       navigator.geolocation.clearWatch(watchId);
       clearTimeout(maxTimer);
-      if (best) setPickup({ lat: best.coords.latitude, lng: best.coords.longitude, name: 'موقعك الحالي' });
+      if (best) {
+        setPickup({ lat: best.coords.latitude, lng: best.coords.longitude, name: 'موقعك الحالي' });
+        setLocationDenied(false);
+      } else if (denied) {
+        setLocationDenied(true);
+      }
       setLocating(false);
     };
     const watchId = navigator.geolocation.watchPosition(
@@ -90,11 +96,18 @@ export default function Home() {
         if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
         if (pos.coords.accuracy <= 20) finish();
       },
-      () => finish(),
+      (err) => finish(err.code === err.PERMISSION_DENIED),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
     const maxTimer = setTimeout(finish, 15000);
   };
+
+  // Determine the rider's location automatically on open instead of waiting
+  // for them to tap the locate button — locateMe itself already surfaces
+  // locationDenied when permission is refused, which the banner below acts on.
+  useEffect(() => {
+    locateMe();
+  }, []);
 
   const fare = dest && destRoute ? fareFor(destRoute.km, destRoute.minutes) : null;
   const fareVisible = settings?.showToRiders !== false;
@@ -134,6 +147,15 @@ export default function Home() {
         <div style={pickBannerStyle}>
           <span style={{ flex: 1 }}>اضغط في أي مكان على الخريطة لتحديد الموقع</span>
           <button onClick={() => setPickingOnMap(false)} style={pickCancelStyle}>إلغاء</button>
+        </div>
+      )}
+
+      {locationDenied && !pickingOnMap && (
+        <div style={pickBannerStyle}>
+          <span style={{ flex: 1 }}>فعّل صلاحية الموقع من إعدادات المتصفح/الهاتف ليحدد التطبيق مكانك تلقائياً</span>
+          <button onClick={locateMe} disabled={locating} style={pickCancelStyle}>
+            {locating ? '…' : 'حاول مجدداً'}
+          </button>
         </div>
       )}
 
