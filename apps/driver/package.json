@@ -7,6 +7,7 @@
     "@supabase/supabase-js": "^2.45.4",
     "@takc/shared": "*",
     "expo": "~57.0.23",
+    "expo-audio": "~57.0.5",
     "expo-location": "~57.0.18",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",

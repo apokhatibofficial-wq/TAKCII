@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { supabase } from '../lib/supabase';
 import { isBackgroundLocationRunning, requestLocationPermissions, startBackgroundLocation, stopBackgroundLocation } from '../location/backgroundTask';
 import { useDriverRide } from '../hooks/useDriverRide';
@@ -7,6 +8,8 @@ import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
 import { COLORS } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
+
+const RINGTONE = require('../../assets/ringtone.wav');
 
 const TRIP_TITLES: Record<string, string> = { toPickup: 'في الطريق إلى الراكب', arrived: 'بانتظار صعود الراكب', onTrip: 'الرحلة جارية' };
 const TRIP_ACTION_LABELS: Record<string, string> = { toPickup: 'وصلت إلى الراكب', arrived: 'بدء الرحلة', onTrip: 'إنهاء الرحلة' };
@@ -28,6 +31,27 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const { pricing, settings } = useFare();
   const stats = useDriverStats(driver.id);
   const ride = useDriverRide(driver.id, pricing);
+
+  // Loud, looping ringtone while a request is waiting on this driver — ported
+  // from index.html's playTone() (same 660/880/660/990Hz triangle-wave chime,
+  // same 1.6s cadence), rendered ahead of time to assets/ringtone.wav since
+  // React Native has no Web Audio API to synthesize it live. playsInSilentMode
+  // is required here: a driver whose phone is on silent/vibrate must still
+  // hear a ride request, which is the whole point of "صوت عالي".
+  const ringPlayer = useAudioPlayer(RINGTONE);
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true });
+  }, []);
+  useEffect(() => {
+    ringPlayer.loop = true;
+    ringPlayer.volume = 1;
+    if (ride.incoming && !ride.muted) {
+      ringPlayer.seekTo(0).then(() => ringPlayer.play());
+    } else {
+      ringPlayer.pause();
+    }
+  }, [ride.incoming, ride.muted, ringPlayer]);
+  useEffect(() => () => ringPlayer.remove(), [ringPlayer]);
 
   const activeRiderId = ride.incoming?.riderId ?? ride.trip?.riderId ?? null;
   useEffect(() => {
