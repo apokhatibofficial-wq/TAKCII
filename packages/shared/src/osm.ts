@@ -166,3 +166,28 @@ export async function distanceOrEstimate(a: [number, number], b: [number, number
     return { km, minutes: (km / 28) * 60, geometry: [a, b], estimated: true };
   }
 }
+
+interface NominatimReverse {
+  display_name?: string;
+  address?: Record<string, string>;
+}
+
+/** Labels a point the user picked directly on the map. Never throws — a
+ * generic label is fine, this is just for display, not matching. */
+export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=ar`;
+    // Nominatim's usage policy rejects requests with no app-identifying
+    // User-Agent or Referer (a generic script UA gets a 403). Browsers
+    // silently drop a JS-set User-Agent and send their own — that plus the
+    // page's own Referer already satisfies the policy there; this header
+    // only actually matters for non-browser callers.
+    const res = await fetch(url, { headers: { 'Accept-Language': 'ar', 'User-Agent': 'TAK-C.TAXI (tak-c.taxi)' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = (await res.json()) as NominatimReverse;
+    const a = j.address ?? {};
+    return a.road || a.suburb || a.village || a.town || a.neighbourhood || j.display_name || 'الموقع المحدد على الخريطة';
+  } catch {
+    return 'الموقع المحدد على الخريطة';
+  }
+}

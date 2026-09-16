@@ -2,10 +2,11 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import MapView, { type MapMarker } from '../components/MapView';
 import RidePanel from '../components/RidePanel';
 import AdOverlay from '../components/AdOverlay';
-import { usePlacesSearch } from '../hooks/usePlacesSearch';
+import { usePlacesSearch, type SearchPlace } from '../hooks/usePlacesSearch';
 import { useFare } from '../hooks/useFare';
 import { useRide } from '../hooks/useRide';
 import { useActiveAd } from '../hooks/useActiveAd';
+import { distanceOrEstimate, reverseGeocode, type RouteResult } from '@takc/shared';
 
 interface Pickup {
   lat: number;
@@ -24,7 +25,10 @@ export default function Home() {
   const [pickup, setPickup] = useState<Pickup>(DEFAULT_PICKUP);
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState('');
-  const [destId, setDestId] = useState<string | null>(null);
+  const [dest, setDest] = useState<SearchPlace | null>(null);
+  const [manualRoute, setManualRoute] = useState<RouteResult | null>(null);
+  const [pickingOnMap, setPickingOnMap] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [adDismissed, setAdDismissed] = useState(false);
   const ad = useActiveAd();
@@ -34,8 +38,27 @@ export default function Home() {
   const { format, fareFor, pricing, settings } = useFare();
   const { ride, requestRide, cancelRide, resetRide } = useRide();
 
-  const dest = useMemo(() => results.find((p) => p.id === destId) ?? null, [results, destId]);
-  const destRoute = dest ? routes[dest.id] : null;
+  // Points picked on the map aren't in the places list, so they have no
+  // entry in usePlacesSearch's route cache — measured separately below.
+  const destRoute = dest ? (routes[dest.id] ?? manualRoute) : null;
+  const noResults = query.trim().length > 0 && results.length === 0;
+
+  const selectDest = (place: SearchPlace) => {
+    setDest(place);
+    setManualRoute(null);
+    setQuery('');
+  };
+
+  const handleMapClick = async (lat: number, lng: number) => {
+    if (!pickingOnMap) return;
+    setPickingOnMap(false);
+    setGeocoding(true);
+    const [name, route] = await Promise.all([reverseGeocode(lat, lng), distanceOrEstimate(from, [lat, lng])]);
+    setDest({ id: `map:${lat},${lng}`, name, area: '', kind: null, lat, lng });
+    setManualRoute(route);
+    setQuery('');
+    setGeocoding(false);
+  };
 
   const markers = useMemo<MapMarker[]>(() => {
     const list: MapMarker[] = [{ id: 'me', lat: pickup.lat, lng: pickup.lng, kind: 'me', title: 'موقعك' }];
@@ -92,7 +115,8 @@ export default function Home() {
         fareAmount: fare,
         fareCurrency: pricing.currency
       });
-      setDestId(null);
+      setDest(null);
+      setManualRoute(null);
     } finally {
       setRequesting(false);
     }
@@ -102,9 +126,16 @@ export default function Home() {
     <>
       {ad && !adDismissed && <AdOverlay ad={ad} onClose={() => setAdDismissed(true)} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <MapView markers={markers} routeGeometry={destRoute?.geometry ?? null} />
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, cursor: pickingOnMap ? 'crosshair' : undefined }}>
+        <MapView markers={markers} routeGeometry={destRoute?.geometry ?? null} onMapClick={handleMapClick} />
       </div>
+
+      {pickingOnMap && (
+        <div style={pickBannerStyle}>
+          <span style={{ flex: 1 }}>اضغط في أي مكان على الخريطة لتحديد الموقع</span>
+          <button onClick={() => setPickingOnMap(false)} style={pickCancelStyle}>إلغاء</button>
+        </div>
+      )}
 
       <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: 8, padding: 12 }}>
         <div
@@ -139,9 +170,10 @@ export default function Home() {
           background: '#fff',
           borderRadius: '26px 26px 0 0',
           boxShadow: '0 -14px 40px -22px rgba(24,22,25,.7)',
-          padding: '14px 18px 20px',
-          maxHeight: '68%',
-          overflow: 'auto'
+          padding: pickingOnMap ? 0 : '14px 18px 20px',
+          maxHeight: pickingOnMap ? 0 : '68%',
+          overflow: pickingOnMap ? 'hidden' : 'auto',
+          transition: 'max-height .2s ease, padding .2s ease'
         }}
       >
         <div style={{ width: 44, height: 4, borderRadius: 4, background: '#e2dcca', margin: '0 auto 14px' }} />
@@ -178,13 +210,7 @@ export default function Home() {
                   ? `${route.km.toFixed(1)} كم · ${Math.max(1, Math.round(route.minutes))} د${route.estimated ? ' (تقديري)' : ' بالسيارة'}`
                   : '… قياس المسار';
                 return (
-                  <button
-                    key={r.id}
-                    onClick={() => {
-                      setDestId(r.id);
-                      setQuery('');
-                    }}
-                    style={resultRowStyle}
+                  <button key={r.id} onClick={() => selectDest(r)} style={resultRowStyle}
                   >
                     <span style={resultIconStyle}>◎</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
@@ -197,6 +223,23 @@ export default function Home() {
                 );
               })}
             </div>
+
+            {noResults && (
+              <div style={noResultsStyle}>
+                <span>لم نجد نتائج مطابقة</span>
+                <button
+                  onClick={() => {
+                    setPickingOnMap(true);
+                    setQuery('');
+                  }}
+                  style={pickOnMapLinkStyle}
+                >
+                  تحديد الموقع على الخريطة
+                </button>
+              </div>
+            )}
+
+            {geocoding && <div style={noResultsStyle}>جارٍ تحديد اسم الموقع…</div>}
 
             {dest && (
               <div
@@ -213,11 +256,19 @@ export default function Home() {
                 <span style={{ width: 9, height: 9, borderRadius: 2, background: 'var(--color-black)', flex: 'none' }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', font: "700 13.5px/1.35 'IBM Plex Sans Arabic',sans-serif" }}>{dest.name}</span>
-                  <span style={{ display: 'block', font: "500 11.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
-                    {dest.area}
-                  </span>
+                  {dest.area && (
+                    <span style={{ display: 'block', font: "500 11.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
+                      {dest.area}
+                    </span>
+                  )}
                 </span>
-                <button onClick={() => setDestId(null)} style={{ background: 'none', border: 'none', color: '#575757', cursor: 'pointer', fontSize: 15 }}>
+                <button
+                  onClick={() => {
+                    setDest(null);
+                    setManualRoute(null);
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#575757', cursor: 'pointer', fontSize: 15 }}
+                >
                   ✕
                 </button>
               </div>
@@ -271,6 +322,51 @@ const roundBtnStyle: CSSProperties = {
   boxShadow: '0 6px 18px -8px rgba(24,22,25,.5)',
   fontSize: 14,
   cursor: 'pointer'
+};
+
+const pickBannerStyle: CSSProperties = {
+  position: 'relative',
+  zIndex: 5,
+  margin: '0 12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  background: 'var(--color-black)',
+  color: 'var(--color-cream)',
+  borderRadius: 13,
+  padding: '11px 13px',
+  font: "600 12.5px/1.4 'IBM Plex Sans Arabic',sans-serif"
+};
+
+const pickCancelStyle: CSSProperties = {
+  border: '1px solid rgba(244,239,225,.3)',
+  borderRadius: 9,
+  background: 'none',
+  color: 'var(--color-cream)',
+  padding: '6px 10px',
+  font: "700 11.5px/1.35 'IBM Plex Sans Arabic',sans-serif",
+  cursor: 'pointer'
+};
+
+const noResultsStyle: CSSProperties = {
+  marginTop: 10,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 8,
+  padding: '18px 10px',
+  textAlign: 'center',
+  font: "500 12.5px/1.6 'IBM Plex Sans Arabic',sans-serif",
+  color: '#8b8b8b'
+};
+
+const pickOnMapLinkStyle: CSSProperties = {
+  border: 'none',
+  background: 'none',
+  color: 'var(--color-green)',
+  font: "700 13px/1.4 'IBM Plex Sans Arabic',sans-serif",
+  cursor: 'pointer',
+  textDecoration: 'underline'
 };
 
 const resultRowStyle: CSSProperties = {

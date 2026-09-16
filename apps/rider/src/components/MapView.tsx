@@ -13,6 +13,7 @@ export interface MapMarker {
 interface MapViewProps {
   markers: MapMarker[];
   routeGeometry?: [number, number][] | null;
+  onMapClick?: (lat: number, lng: number) => void;
 }
 
 // Ported from index.html's icon()/syncMap()/drawMarkers()/drawRoute() — same
@@ -40,11 +41,13 @@ function iconFor(kind: MapMarker['kind']): L.DivIcon {
   });
 }
 
-export default function MapView({ markers, routeGeometry }: MapViewProps) {
+export default function MapView({ markers, routeGeometry, onMapClick }: MapViewProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Record<string, L.Marker>>({});
   const routeRef = useRef<L.Polyline | null>(null);
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   useEffect(() => {
     if (!nodeRef.current || mapRef.current) return;
@@ -53,6 +56,7 @@ export default function MapView({ markers, routeGeometry }: MapViewProps) {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
+    map.on('click', (e: L.LeafletMouseEvent) => onMapClickRef.current?.(e.latlng.lat, e.latlng.lng));
     mapRef.current = map;
     setTimeout(() => map.invalidateSize(), 150);
     return () => {
