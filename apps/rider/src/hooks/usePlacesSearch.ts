@@ -34,8 +34,8 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
 
   const results = useMemo(() => {
     const q = query.trim();
-    const list = !q ? places : places.filter((p) => (p.name + ' ' + p.area).includes(q));
-    return list.slice(0, 8);
+    if (!q) return [];
+    return places.filter((p) => (p.name + ' ' + p.area).includes(q)).slice(0, 8);
   }, [places, query]);
 
   useEffect(() => {

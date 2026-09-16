@@ -43,17 +43,34 @@ export default function Home() {
     return list;
   }, [pickup, dest]);
 
+  // A single getCurrentPosition call often resolves with whatever fix is
+  // available first (frequently a coarse network/Wi-Fi estimate, off by
+  // hundreds of meters) rather than waiting for GPS to lock. watchPosition
+  // keeps listening and tracks the best (lowest accuracy radius) reading
+  // seen, resolving early once it's genuinely good or after a longer
+  // timeout otherwise — this is what "دقة عالية جداً" needs in practice.
   const locateMe = () => {
     if (!navigator.geolocation) return;
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    let best: GeolocationPosition | null = null;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(watchId);
+      clearTimeout(maxTimer);
+      if (best) setPickup({ lat: best.coords.latitude, lng: best.coords.longitude, name: 'موقعك الحالي' });
+      setLocating(false);
+    };
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        setPickup({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'موقعك الحالي' });
-        setLocating(false);
+        if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+        if (pos.coords.accuracy <= 20) finish();
       },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10000 }
+      () => finish(),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
+    const maxTimer = setTimeout(finish, 15000);
   };
 
   const fare = dest && destRoute ? fareFor(destRoute.km, destRoute.minutes) : null;
