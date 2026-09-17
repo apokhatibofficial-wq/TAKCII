@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { rowToCamel, waitFareOf, type Database, type PricingRow, type Ride, type RideStatus } from '@takc/shared';
+import { rowToCamel, type Ride, type RideStatus } from '@takc/shared';
 
 const ADVANCE: Partial<Record<RideStatus, RideStatus>> = { toPickup: 'arrived', arrived: 'onTrip', onTrip: 'done' };
 const ACTIVE_TRIP_STATUSES: RideStatus[] = ['toPickup', 'arrived', 'onTrip'];
@@ -11,7 +11,7 @@ const MAX_WAIT_RUNS = 2;
 // (dTrip) blocks from index.html. Both are fed by one Realtime subscription
 // on rides.driver_id — request_ride/reject_ride insert or move rows into
 // this driver's view, accept_ride/advanceTrip move them out again.
-export function useDriverRide(driverId: string | null, pricing: PricingRow | null) {
+export function useDriverRide(driverId: string | null) {
   const [incoming, setIncoming] = useState<Ride | null>(null);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [muted, setMuted] = useState(false);
@@ -155,26 +155,24 @@ export function useDriverRide(driverId: string | null, pricing: PricingRow | nul
     if (!trip) return;
     const next = ADVANCE[trip.status];
     if (!next) return;
-    const patch: Database['public']['Tables']['rides']['Update'] = { status: next };
-    if (next === 'arrived') patch.arrived_at = new Date().toISOString();
-    if (next === 'onTrip') patch.started_at = new Date().toISOString();
-    if (next === 'done') {
-      const finalSeconds = waitTotal + (waitRunning ? waitSeconds : 0);
-      const finalRuns = waitRuns + (waitRunning ? 1 : 0);
-      patch.completed_at = new Date().toISOString();
-      patch.wait_seconds = finalSeconds;
-      patch.wait_runs = finalRuns;
-      patch.wait_fare = pricing ? waitFareOf(pricing, finalSeconds) : 0;
-    }
-    const { error } = await supabase.from('rides').update(patch).eq('id', trip.id);
-    if (error) return;
-    if (next === 'done') {
+    const isDone = next === 'done';
+    const finalSeconds = isDone ? waitTotal + (waitRunning ? waitSeconds : 0) : undefined;
+    const finalRuns = isDone ? waitRuns + (waitRunning ? 1 : 0) : undefined;
+    // advance_trip computes the next status and wait_fare itself server-side —
+    // wait_seconds/wait_runs are the only client-measured inputs it trusts.
+    const { data, error } = await supabase.rpc('advance_trip', {
+      p_ride_id: trip.id,
+      p_wait_seconds: finalSeconds,
+      p_wait_runs: finalRuns
+    });
+    if (error || !data) return;
+    if (isDone) {
       setTrip(null);
       resetWait();
     } else {
-      setTrip({ ...trip, status: next });
+      setTrip(rowToCamel<Ride>(data));
     }
-  }, [trip, waitTotal, waitRunning, waitSeconds, waitRuns, pricing, resetWait]);
+  }, [trip, waitTotal, waitRunning, waitSeconds, waitRuns, resetWait]);
 
   useEffect(
     () => () => {

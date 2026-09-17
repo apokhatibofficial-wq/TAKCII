@@ -47,13 +47,16 @@ Deno.serve(async (req) => {
     }
 
     const table = role === 'rider' ? 'riders' : 'drivers';
-    const { data, error } = await admin
-      .from(table)
-      .select('email, status')
-      .or(`username.eq.${id},phone.eq.${id}`)
-      .maybeSingle();
+    // Two structured .eq() lookups rather than a hand-built .or() filter
+    // string — id is caller-controlled, and .or() takes a raw PostgREST
+    // filter expression that has to be escaped by hand if you interpolate
+    // into it, unlike .eq(column, value) which the client encodes safely.
+    let data = (await admin.from(table).select('email, status').eq('username', id).maybeSingle()).data;
+    if (!data) {
+      data = (await admin.from(table).select('email, status').eq('phone', id).maybeSingle()).data;
+    }
 
-    if (error || !data) {
+    if (!data) {
       return new Response(JSON.stringify({ error: 'account_not_found' }), {
         status: 404,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }

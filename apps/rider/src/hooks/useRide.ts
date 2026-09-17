@@ -54,7 +54,7 @@ export function useRide() {
 
   const cancelRide = useCallback(async () => {
     if (!ride) return;
-    await supabase.from('rides').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', ride.id);
+    await supabase.rpc('cancel_ride', { p_ride_id: ride.id });
     channelRef.current?.unsubscribe();
     channelRef.current = null;
     setRide(null);

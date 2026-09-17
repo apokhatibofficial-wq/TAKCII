@@ -30,7 +30,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const [riderName, setRiderName] = useState('');
   const { pricing, settings } = useFare();
   const stats = useDriverStats(driver.id);
-  const ride = useDriverRide(driver.id, pricing);
+  const ride = useDriverRide(driver.id);
 
   // Loud, looping ringtone while a request is waiting on this driver — ported
   // from index.html's playTone() (same 660/880/660/990Hz triangle-wave chime,

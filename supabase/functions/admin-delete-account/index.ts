@@ -39,12 +39,16 @@ Deno.serve(async (req) => {
     // Checked explicitly rather than parsing the cascade's failure: GoTrue
     // wraps any DB error from deleteUser as a generic "Database error
     // deleting user" with no constraint detail to distinguish "has history"
-    // from a real failure.
-    const [rides, ratings] = await Promise.all([
-      admin.from('rides').select('id', { count: 'exact', head: true }).or(`rider_id.eq.${id},driver_id.eq.${id}`),
-      admin.from('ratings').select('id', { count: 'exact', head: true }).or(`rider_id.eq.${id},driver_id.eq.${id}`)
+    // from a real failure. Four separate .eq() counts rather than an
+    // interpolated .or() filter string, which would otherwise take
+    // caller-controlled id straight into PostgREST filter syntax unescaped.
+    const counts = await Promise.all([
+      admin.from('rides').select('id', { count: 'exact', head: true }).eq('rider_id', id),
+      admin.from('rides').select('id', { count: 'exact', head: true }).eq('driver_id', id),
+      admin.from('ratings').select('id', { count: 'exact', head: true }).eq('rider_id', id),
+      admin.from('ratings').select('id', { count: 'exact', head: true }).eq('driver_id', id)
     ]);
-    if ((rides.count ?? 0) > 0 || (ratings.count ?? 0) > 0) return bad(409, 'has_history');
+    if (counts.some((c) => (c.count ?? 0) > 0)) return bad(409, 'has_history');
 
     const { error } = await admin.auth.admin.deleteUser(id);
     if (error) return bad(400, error.message);
