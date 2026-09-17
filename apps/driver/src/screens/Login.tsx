@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme';
 
@@ -8,15 +9,26 @@ interface LoginProps {
   onLoggedIn: () => void;
 }
 
-// Temporary diagnostic build marker + step-by-step on-screen log. Every fix
-// so far (url-polyfill, try/catch, error boundary) tested clean via a plain
-// Node.js script hitting the exact same endpoints, yet the real device still
-// silently lands back on this screen with zero error from any of those nets
-// — which stops making sense unless either the failure is somewhere this
-// specific runtime hits that Node never can, or the device is still running
-// a stale build. BUILD_MARKER answers "is this really the new code," and the
-// log answers "which exact step it gets to" — both remove guessing entirely.
-const BUILD_MARKER = 'BUILD-DIAG-3';
+// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-3
+// added a tick+timeout race around signInWithPassword to tell a slow
+// resolve apart from a true hang; the report back was "log stops at the
+// same point" with no further lines — consistent with a full JS-thread
+// freeze, not a slow promise (an independent setInterval/setTimeout would
+// still have fired even if only signInWithPassword itself were stuck).
+// Ruled out by reading the installed @supabase/auth-js source directly
+// (not assumed): signInWithPassword in this version never calls any lock
+// primitive at all (this.lock is null by default, and the lock path only
+// wraps getUser/updateUser/setSession/exchangeCodeForSession) — so the
+// well-documented GoTrue "Web Locks deadlock" bug class does not apply
+// here. That leaves the two native bridge calls a real login makes that a
+// Node.js script never touches: the RN fetch/networking stack, and
+// AsyncStorage (which GoTrueClient reads/writes to persist the session on
+// New Architecture, mandatory as of RN 0.82+ — it cannot be turned off on
+// this RN 0.86 project, confirmed against React Native's own release
+// notes). DIAG-4 probes both independently, on screen load, before the
+// user even presses the button — so a single screenshot shows which layer
+// (if either) actually freezes.
+const BUILD_MARKER = 'BUILD-DIAG-4';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
@@ -30,6 +42,44 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
 
   const pushLog = (msg: string) => setLog((l) => [...l, `${new Date().toISOString().slice(11, 19)} ${msg}`]);
 
+  // Races an arbitrary probe against a 3s tick + 15s timeout, same shape as
+  // the signInWithPassword race below. Isolates one native bridge call at a
+  // time so a freeze in fetch or in AsyncStorage shows up distinctly instead
+  // of both being blamed on "the login call."
+  const runProbe = (label: string, fn: () => Promise<unknown>) => {
+    const tick = setInterval(() => pushLog(`${label}: … still waiting`), 3000);
+    const timeoutPromise = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 15000));
+    Promise.race([fn().then(() => 'ok' as const).catch((e) => ({ threw: e })), timeoutPromise])
+      .then((result) => {
+        clearInterval(tick);
+        if (result === 'timeout') pushLog(`${label}: TIMEOUT after 15s`);
+        else if (result === 'ok') pushLog(`${label}: OK`);
+        else pushLog(`${label}: ERROR ${result.threw instanceof Error ? result.threw.message : String(result.threw)}`);
+      })
+      .catch((e) => {
+        clearInterval(tick);
+        pushLog(`${label}: THREW ${e instanceof Error ? e.message : String(e)}`);
+      });
+  };
+
+  // Auto-runs on screen load, before any button press, so the two native
+  // bridge calls a real login makes (and a Node.js reproduction never
+  // touches) are tested unconditionally — a screenshot taken right after
+  // opening the app already carries this data.
+  useEffect(() => {
+    pushLog('A/fetch: probing auth server directly…');
+    runProbe('A/fetch', () =>
+      fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
+        headers: { apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '' }
+      })
+    );
+    pushLog('B/storage: probing AsyncStorage…');
+    runProbe('B/storage', async () => {
+      await AsyncStorage.setItem('takc_diag_probe', String(Date.now()));
+      return AsyncStorage.getItem('takc_diag_probe');
+    });
+  }, []);
+
   const doLogin = async () => {
     if (!loginId.trim() || !password) {
       setError('أدخل اسم المستخدم أو رقم الهاتف وكلمة المرور.');
@@ -37,7 +87,7 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
     }
     setBusy(true);
     setError('');
-    setLog([]);
+    pushLog('--- login attempt ---');
     try {
       pushLog('1/4 calling resolve-login-email…');
       const { data, error: fnError } = await supabase.functions.invoke<{ email: string; status: string }>('resolve-login-email', {
