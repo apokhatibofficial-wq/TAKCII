@@ -1,3 +1,10 @@
+// Must be the first import: Hermes has no full URL implementation, and
+// @supabase/supabase-js depends on the real one internally. Without this,
+// requests can still go out, so this doesn't crash — but auth internals
+// (session parsing/persistence, refresh) misbehave in ways that surface as
+// sign-in silently not sticking rather than as any visible error.
+import 'react-native-url-polyfill/auto';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';
