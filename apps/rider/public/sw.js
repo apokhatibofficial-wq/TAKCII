@@ -1,5 +1,5 @@
 /* TAK-C.TAXI service worker — cache-first shell, network-first data, instant silent updates */
-const VERSION = 'takc-v1';
+const VERSION = 'takc-v2';
 const SHELL = ['./', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -26,7 +26,18 @@ self.addEventListener('fetch', (e) => {
     // stale-while-revalidate: map keeps working on a weak network
     e.respondWith(caches.open(VERSION + '-tiles').then(async (c) => {
       const hit = await c.match(req);
-      const net = fetch(req).then((r) => { c.put(req, r.clone()); return r; }).catch(() => hit);
+      const net = fetch(req)
+        .then(async (r) => {
+          // cache.put() rejects for a handful of real response shapes (206
+          // Partial Content is the common one) — that rejection was never
+          // awaited or caught here, so it surfaced as an unhandled promise
+          // rejection inside the service worker on any such request. Awaiting
+          // it behind its own .catch() means a failed cache write can never
+          // do anything but fail to cache; it can't take the response down.
+          await c.put(req, r.clone()).catch(() => {});
+          return r;
+        })
+        .catch(() => hit);
       return hit || net;
     }));
     return;
@@ -35,7 +46,7 @@ self.addEventListener('fetch', (e) => {
     try {
       const net = await fetch(req);
       const c = await caches.open(VERSION);
-      c.put(req, net.clone());
+      await c.put(req, net.clone()).catch(() => {});
       return net;
     } catch (err) {
       const hit = await caches.match(req);
