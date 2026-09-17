@@ -517,7 +517,11 @@ export type Database = {
         }
       }
       advance_trip: {
-        Args: { p_ride_id: string; p_wait_runs?: number; p_wait_seconds?: number }
+        Args: {
+          p_ride_id: string
+          p_wait_runs?: number
+          p_wait_seconds?: number
+        }
         Returns: {
           arrived_at: string | null
           cancelled_at: string | null
