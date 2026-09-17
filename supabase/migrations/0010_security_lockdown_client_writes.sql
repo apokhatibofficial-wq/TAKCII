@@ -13,7 +13,10 @@
 --   * a suspended rider, or a pending/suspended driver, could set their own
 --     `status` back to 'active' directly, bypassing admin review entirely;
 --   * a rider could insert a `ratings` row for any driver_id of their
---     choosing, not necessarily whoever actually drove them.
+--     choosing, not necessarily whoever actually drove them;
+--   * a driver could directly inflate their own accepted_count/rejected_count
+--     (the reputation stats shown in the driver's own stats row), since the
+--     existing "drivers update own row" policy is row-scoped, not column-scoped.
 -- This migration removes the raw table access that made all of that
 -- possible and replaces the two legitimate write paths (rider cancel,
 -- driver trip-advance) with SECURITY DEFINER functions that only perform
@@ -115,33 +118,105 @@ grant execute on function advance_trip(uuid, int, int) to authenticated;
 drop policy if exists "riders update own row" on riders;
 
 -- --- drivers: online/lat/lng are genuinely self-editable (the toggle button
--- and the background location task); status is not — that's what let a
--- pending or suspended driver approve/unsuspend themselves.
-create or replace function drivers_restrict_self_status()
+-- and the background location task); status and the reputation counters are
+-- not — status is what let a pending/suspended driver approve/unsuspend
+-- themselves, and the counters are what let a driver inflate their own
+-- accepted/rejected stats via a raw PATCH. accept_ride/reject_ride still need
+-- to bump these server-side, so they flip a transaction-local flag right
+-- before doing it: a SECURITY DEFINER function's own writes bypass RLS, but
+-- NOT triggers, so without this escape hatch this trigger would also block
+-- their own legitimate increment.
+create or replace function drivers_restrict_privileged_columns()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if not is_admin() and new.status is distinct from old.status then
-    raise exception 'only an admin can change a driver''s status';
+  if not is_admin() and coalesce(current_setting('takc.trusted_write', true), '') <> 'on' then
+    if new.status is distinct from old.status then
+      raise exception 'only an admin can change a driver''s status';
+    end if;
+    if new.accepted_count is distinct from old.accepted_count or new.rejected_count is distinct from old.rejected_count then
+      raise exception 'accepted_count/rejected_count cannot be written directly';
+    end if;
   end if;
   return new;
 end;
 $$;
 drop trigger if exists drivers_restrict_self_status_trigger on drivers;
-create trigger drivers_restrict_self_status_trigger
+drop trigger if exists drivers_restrict_privileged_columns_trigger on drivers;
+create trigger drivers_restrict_privileged_columns_trigger
 before update on drivers
-for each row execute function drivers_restrict_self_status();
+for each row execute function drivers_restrict_privileged_columns();
+
+-- accept_ride/reject_ride re-declared to set the trigger's escape hatch
+-- immediately before the increment it guards; every other line is identical
+-- to the 0007 definitions.
+create or replace function accept_ride(p_ride_id uuid)
+returns rides
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ride rides;
+begin
+  update rides set status = 'toPickup', matched_at = now()
+  where id = p_ride_id and driver_id = auth.uid() and status = 'dispatched'
+  returning * into v_ride;
+  if v_ride.id is null then
+    raise exception 'ride is no longer available to accept';
+  end if;
+  perform set_config('takc.trusted_write', 'on', true);
+  update drivers set accepted_count = accepted_count + 1 where id = auth.uid();
+  return v_ride;
+end;
+$$;
+
+create or replace function reject_ride(p_ride_id uuid)
+returns rides
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ride rides;
+  v_next_driver uuid;
+  v_declined uuid[];
+begin
+  select * into v_ride from rides where id = p_ride_id and driver_id = auth.uid() and status = 'dispatched';
+  if v_ride.id is null then
+    raise exception 'ride is no longer available to reject';
+  end if;
+  perform set_config('takc.trusted_write', 'on', true);
+  update drivers set rejected_count = rejected_count + 1 where id = auth.uid();
+
+  v_declined := v_ride.declined_driver_ids || auth.uid();
+  v_next_driver := nearest_available_driver(v_ride.pickup_lat, v_ride.pickup_lng, v_declined);
+
+  update rides set
+    driver_id = v_next_driver,
+    declined_driver_ids = v_declined,
+    status = (case when v_next_driver is null then 'searching' else 'dispatched' end)::ride_status,
+    dispatched_at = (case when v_next_driver is null then null else now() end)
+  where id = p_ride_id
+  returning * into v_ride;
+  return v_ride;
+end;
+$$;
 
 -- --- ratings: a rider's own completed ride must actually have been driven
--- by the driver_id they're rating.
+-- by the driver_id they're rating. rides.driver_id must be qualified against
+-- ratings.driver_id explicitly: a bare `driver_id` here resolves to the
+-- subquery's own rides.driver_id (Postgres prefers the innermost scope),
+-- which made the very first version of this check tautologically true and
+-- let the arbitrary-driver_id rating through unfiltered.
 drop policy if exists "riders insert rating for own completed ride" on ratings;
 create policy "riders insert rating for own completed ride" on ratings for insert with check (
-  auth.uid() = rider_id
+  auth.uid() = ratings.rider_id
   and exists (
     select 1 from rides
-    where rides.id = ride_id and rides.rider_id = auth.uid() and rides.status = 'done' and rides.driver_id = driver_id
+    where rides.id = ratings.ride_id and rides.rider_id = auth.uid() and rides.status = 'done' and rides.driver_id = ratings.driver_id
   )
 );
