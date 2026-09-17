@@ -58,6 +58,11 @@ export default function Signup({ onLogin, onSubmitted }: SignupProps) {
         // the driver can still log in normally from the login screen.
         onSubmitted();
       }
+    } catch (e) {
+      // Same gap as Login.tsx's doLogin: anything that throws instead of
+      // returning {error} was silently swallowed before, clearing busy via
+      // finally with zero visible feedback.
+      setError(`خطأ غير متوقع: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }

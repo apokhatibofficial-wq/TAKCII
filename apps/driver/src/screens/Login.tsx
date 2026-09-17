@@ -42,6 +42,13 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
         return;
       }
       onLoggedIn();
+    } catch (e) {
+      // Anything that throws instead of returning {error} (a genuine network
+      // failure, a bug in a dependency) was silently swallowed before — busy
+      // still cleared via finally, but with no visible feedback at all, which
+      // looked exactly like "briefly loads then does nothing." Surfacing the
+      // real message is what actually lets this get diagnosed and fixed.
+      setError(`خطأ غير متوقع: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
