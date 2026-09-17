@@ -9,26 +9,20 @@ interface LoginProps {
   onLoggedIn: () => void;
 }
 
-// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-3
-// added a tick+timeout race around signInWithPassword to tell a slow
-// resolve apart from a true hang; the report back was "log stops at the
-// same point" with no further lines — consistent with a full JS-thread
-// freeze, not a slow promise (an independent setInterval/setTimeout would
-// still have fired even if only signInWithPassword itself were stuck).
-// Ruled out by reading the installed @supabase/auth-js source directly
-// (not assumed): signInWithPassword in this version never calls any lock
-// primitive at all (this.lock is null by default, and the lock path only
-// wraps getUser/updateUser/setSession/exchangeCodeForSession) — so the
-// well-documented GoTrue "Web Locks deadlock" bug class does not apply
-// here. That leaves the two native bridge calls a real login makes that a
-// Node.js script never touches: the RN fetch/networking stack, and
-// AsyncStorage (which GoTrueClient reads/writes to persist the session on
-// New Architecture, mandatory as of RN 0.82+ — it cannot be turned off on
-// this RN 0.86 project, confirmed against React Native's own release
-// notes). DIAG-4 probes both independently, on screen load, before the
-// user even presses the button — so a single screenshot shows which layer
-// (if either) actually freezes.
-const BUILD_MARKER = 'BUILD-DIAG-4';
+// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-4's
+// fetch/AsyncStorage probes both came back OK, and login itself succeeded
+// on the same run (reached Home) — the earlier "log stops right after
+// signInWithPassword" report did not reproduce, so treat it as resolved for
+// now rather than chase it further without new evidence. The live issue as
+// of DIAG-5 is what happens right after: login succeeds, Home mounts, the
+// app closes outright (OS "keeps stopping" dialog) — and installGlobalCrashLogger
+// (index.ts, added for DIAG-4) never captured anything, meaning that crash
+// doesn't route through ErrorUtils at all, so it isn't a catchable JS
+// exception. Home.tsx now writes a breadcrumb (crashLog.ts) before each
+// suspect native call (audio player init, audio mode, background location)
+// instead of trying to catch the failure — whichever breadcrumb is last on
+// the next launch marks where execution actually stopped.
+const BUILD_MARKER = 'BUILD-DIAG-5';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the

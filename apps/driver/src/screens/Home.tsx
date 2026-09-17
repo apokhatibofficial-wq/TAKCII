@@ -8,6 +8,7 @@ import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
 import { COLORS } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
+import { writeBreadcrumb } from '../lib/crashLog';
 
 const RINGTONE = require('../../assets/ringtone.wav');
 
@@ -26,6 +27,11 @@ function fmtClock(totalSeconds: number): string {
 // + the negotiation flow, not route browsing, so this uses the prototype's
 // own "liteMap" fallback styling instead of pulling in a native map library.
 export default function Home({ driver, setDriver, onLogout }: { driver: Driver; setDriver: (d: Driver) => void; onLogout: () => void }) {
+  // BUILD-DIAG-4's ErrorUtils hook never caught the reported crash, meaning
+  // it isn't a catchable JS exception — see crashLog.ts. Written before each
+  // suspect call (not after a failure) so the last one recorded on the next
+  // launch marks where execution actually stopped, crash-catchable or not.
+  writeBreadcrumb('home_render_start');
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [riderName, setRiderName] = useState('');
   const { pricing, settings } = useFare();
@@ -39,8 +45,12 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // is required here: a driver whose phone is on silent/vibrate must still
   // hear a ride request, which is the whole point of "صوت عالي".
   const ringPlayer = useAudioPlayer(RINGTONE);
+  writeBreadcrumb('audio_player_created');
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
+    writeBreadcrumb('audio_mode_set_start');
+    setAudioModeAsync({ playsInSilentMode: true })
+      .then(() => writeBreadcrumb('audio_mode_set_done'))
+      .catch(() => writeBreadcrumb('audio_mode_set_rejected'));
   }, []);
   useEffect(() => {
     try {
@@ -85,14 +95,18 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // having been started for this app instance — reconcile on mount/whenever
   // it changes so "online" in the DB never lies about being tracked.
   useEffect(() => {
+    writeBreadcrumb(`location_effect_start online=${driver.online}`);
     if (!driver.online) return;
     let cancelled = false;
     (async () => {
+      writeBreadcrumb('location_checking_already_running');
       const already = await isBackgroundLocationRunning();
       if (already || cancelled) return;
+      writeBreadcrumb('location_requesting_permissions');
       const granted = await requestLocationPermissions();
       if (cancelled) return;
       if (!granted) {
+        writeBreadcrumb('location_permission_denied');
         await supabase.from('drivers').update({ online: false }).eq('id', driver.id);
         if (!cancelled) {
           setDriver({ ...driver, online: false });
@@ -100,7 +114,9 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         }
         return;
       }
+      writeBreadcrumb('location_starting_background_task');
       await startBackgroundLocation();
+      writeBreadcrumb('location_background_task_started');
     })();
     return () => {
       cancelled = true;
@@ -157,6 +173,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const reqHasFare = !!(incoming && incoming.fareAmount != null) && settings?.showToRiders !== false;
   const reqTripMeta = incoming && incoming.km != null && incoming.minutes != null ? `${incoming.km.toFixed(1)} كم · ${Math.max(1, Math.round(incoming.minutes))} دقيقة` : '';
 
+  writeBreadcrumb('home_render_reached_jsx');
   return (
     <View style={styles.root}>
       <View style={styles.mapBg} />

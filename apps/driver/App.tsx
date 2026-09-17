@@ -9,7 +9,7 @@ import Pending from './src/screens/Pending';
 import Home from './src/screens/Home';
 import { COLORS } from './src/theme';
 import ErrorBoundary from './src/ErrorBoundary';
-import { readAndClearLastCrash } from './src/lib/crashLog';
+import { readAndClearLastCrash, readAndClearLastBreadcrumb } from './src/lib/crashLog';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -25,13 +25,18 @@ function AppInner() {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [lastCrash, setLastCrash] = useState<Awaited<ReturnType<typeof readAndClearLastCrash>>>(null);
+  const [lastBreadcrumb, setLastBreadcrumb] = useState<Awaited<ReturnType<typeof readAndClearLastBreadcrumb>>>(null);
   const { driver, loading, setDriver } = useDriverProfile(userId ?? null);
 
   // Surfaces whatever installGlobalCrashLogger (index.ts) persisted right
-  // before an uncaught JS exception took the app down last time — the only
-  // way to see that reason without device/logcat access.
+  // before an uncaught JS exception took the app down last time, plus the
+  // last Home.tsx breadcrumb (crashLog.ts) for a crash that never reaches
+  // ErrorUtils at all — the only way to see either without device/logcat
+  // access. Not cleared: unlike the crash record, "last screen reached"
+  // stays useful across repeated launches until a fresh one overwrites it.
   useEffect(() => {
     readAndClearLastCrash().then(setLastCrash);
+    readAndClearLastBreadcrumb().then(setLastBreadcrumb);
   }, []);
 
   useEffect(() => {
@@ -90,14 +95,31 @@ function AppInner() {
   return (
     <>
       {body}
-      {lastCrash && (
+      {(lastCrash || lastBreadcrumb) && (
         <View style={styles.crashBanner}>
           <ScrollView style={styles.crashScroll}>
-            <Text style={styles.crashTitle}>تعطل التطبيق آخر مرة — سبب الخطأ:</Text>
-            <Text style={styles.crashMessage}>{lastCrash.message}</Text>
-            {!!lastCrash.stack && <Text style={styles.crashStack}>{lastCrash.stack}</Text>}
+            {lastCrash && (
+              <>
+                <Text style={styles.crashTitle}>تعطل التطبيق آخر مرة — سبب الخطأ:</Text>
+                <Text style={styles.crashMessage}>{lastCrash.message}</Text>
+                {!!lastCrash.stack && <Text style={styles.crashStack}>{lastCrash.stack}</Text>}
+              </>
+            )}
+            {lastBreadcrumb && (
+              <>
+                <Text style={styles.crashTitle}>آخر نقطة وصلها التطبيق قبل إغلاقه:</Text>
+                <Text style={styles.crashMessage}>{lastBreadcrumb.step}</Text>
+                <Text style={styles.crashStack}>{lastBreadcrumb.at}</Text>
+              </>
+            )}
           </ScrollView>
-          <Pressable onPress={() => setLastCrash(null)} style={styles.crashClose}>
+          <Pressable
+            onPress={() => {
+              setLastCrash(null);
+              setLastBreadcrumb(null);
+            }}
+            style={styles.crashClose}
+          >
             <Text style={styles.crashCloseText}>إغلاق</Text>
           </Pressable>
         </View>

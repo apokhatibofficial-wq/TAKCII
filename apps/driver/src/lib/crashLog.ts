@@ -51,3 +51,33 @@ export async function readAndClearLastCrash(): Promise<StoredCrash | null> {
     return null;
   }
 }
+
+// BUILD-DIAG-4 shipped installGlobalCrashLogger above and reached the user's
+// device — the OS "keeps stopping" dialog reproduced again, but no crash
+// banner appeared on the next launch. That means this crash never reaches
+// ErrorUtils at all: it's not an uncaught JS exception, it's something lower
+// (a native module throwing across the bridge, a JSI/codegen fault) that
+// kills the process before any JS-level handler — including the global
+// one — ever runs. Catching the failure itself is therefore off the table
+// with a JS-only toolkit. What's left is recording progress *before* each
+// suspect call, so whichever breadcrumb is last on the next launch marks
+// where execution stopped, regardless of how it stopped.
+const BREADCRUMB_KEY = 'takc_last_breadcrumb';
+
+export function writeBreadcrumb(step: string): void {
+  AsyncStorage.setItem(BREADCRUMB_KEY, JSON.stringify({ step, at: new Date().toISOString() })).catch(() => undefined);
+}
+
+// Cleared on read, same as readAndClearLastCrash — otherwise the banner
+// would reappear on every future launch instead of just the one after
+// whatever it's actually reporting on.
+export async function readAndClearLastBreadcrumb(): Promise<{ step: string; at: string } | null> {
+  try {
+    const raw = await AsyncStorage.getItem(BREADCRUMB_KEY);
+    if (!raw) return null;
+    await AsyncStorage.removeItem(BREADCRUMB_KEY);
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
