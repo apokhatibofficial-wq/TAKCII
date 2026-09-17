@@ -9,20 +9,18 @@ interface LoginProps {
   onLoggedIn: () => void;
 }
 
-// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-4's
-// fetch/AsyncStorage probes both came back OK, and login itself succeeded
-// on the same run (reached Home) — the earlier "log stops right after
-// signInWithPassword" report did not reproduce, so treat it as resolved for
-// now rather than chase it further without new evidence. The live issue as
-// of DIAG-5 is what happens right after: login succeeds, Home mounts, the
-// app closes outright (OS "keeps stopping" dialog) — and installGlobalCrashLogger
-// (index.ts, added for DIAG-4) never captured anything, meaning that crash
-// doesn't route through ErrorUtils at all, so it isn't a catchable JS
-// exception. Home.tsx now writes a breadcrumb (crashLog.ts) before each
-// suspect native call (audio player init, audio mode, background location)
-// instead of trying to catch the failure — whichever breadcrumb is last on
-// the next launch marks where execution actually stopped.
-const BUILD_MARKER = 'BUILD-DIAG-5';
+// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-5's
+// breadcrumb never showed up after the crash either, even though the first
+// one fires before any of Home.tsx's own code runs — meaning either the
+// AsyncStorage write doesn't survive a crash this close after it (writes
+// can be buffered and lost if the process dies before they flush to disk),
+// or the crash isn't in Home.tsx's mount sequence at all. Logging further
+// can't distinguish those, so DIAG-6 bisects directly instead: Home.tsx's
+// two temporary DIAG_DISABLE_* flags turn off expo-audio's player and
+// expo-location's background task (the concrete native-bridge calls Home
+// makes unconditionally on mount) to see whether the crash still happens
+// with neither running.
+const BUILD_MARKER = 'BUILD-DIAG-6';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
