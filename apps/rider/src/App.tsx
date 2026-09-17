@@ -24,10 +24,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setScreen('home');
-      setSessionChecked(true);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data.session) setScreen('home');
+      })
+      .catch(() => undefined)
+      .finally(() => setSessionChecked(true));
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {

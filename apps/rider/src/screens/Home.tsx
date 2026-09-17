@@ -78,11 +78,18 @@ export default function Home() {
     setLocating(true);
     let best: GeolocationPosition | null = null;
     let done = false;
+    // watchId/maxTimer are declared (not const-initialized inline) before
+    // watchPosition is called: some Android WebView/WebAPK builds have been
+    // seen invoking the error callback synchronously on an already-denied
+    // permission, which would otherwise hit `finish` while watchId is still
+    // in its temporal dead zone and throw, taking the whole render down.
+    let watchId: number | undefined;
+    let maxTimer: ReturnType<typeof setTimeout> | undefined;
     const finish = (denied?: boolean) => {
       if (done) return;
       done = true;
-      navigator.geolocation.clearWatch(watchId);
-      clearTimeout(maxTimer);
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      if (maxTimer !== undefined) clearTimeout(maxTimer);
       if (best) {
         setPickup({ lat: best.coords.latitude, lng: best.coords.longitude, name: 'موقعك الحالي' });
         setLocationDenied(false);
@@ -91,7 +98,7 @@ export default function Home() {
       }
       setLocating(false);
     };
-    const watchId = navigator.geolocation.watchPosition(
+    watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
         if (pos.coords.accuracy <= 20) finish();
@@ -99,7 +106,7 @@ export default function Home() {
       (err) => finish(err.code === err.PERMISSION_DENIED),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
-    const maxTimer = setTimeout(finish, 15000);
+    maxTimer = setTimeout(finish, 15000);
   };
 
   // Determine the rider's location automatically on open instead of waiting
