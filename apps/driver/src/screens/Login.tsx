@@ -16,7 +16,7 @@ interface LoginProps {
 // specific runtime hits that Node never can, or the device is still running
 // a stale build. BUILD_MARKER answers "is this really the new code," and the
 // log answers "which exact step it gets to" — both remove guessing entirely.
-const BUILD_MARKER = 'BUILD-DIAG-2';
+const BUILD_MARKER = 'BUILD-DIAG-3';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
@@ -53,7 +53,29 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
         return;
       }
       pushLog('2/4 calling signInWithPassword…');
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password });
+      // A screenshot from BUILD-DIAG-1 showed the log stopping right after
+      // this line — resolve-login-email had already returned in under a
+      // second, but signInWithPassword never printed its "done" line before
+      // the screenshot was taken. A tick every 3s while it's still pending,
+      // plus a hard 15s timeout, tells us whether it eventually resolves
+      // slowly or genuinely never does — a distinction that changes what
+      // the real fix even could be.
+      const tick = setInterval(() => pushLog('2/4 … still waiting on signInWithPassword'), 3000);
+      const signInPromise = supabase.auth.signInWithPassword({ email: data.email, password });
+      const timeoutPromise = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 15000));
+      const raceResult = await Promise.race([signInPromise, timeoutPromise]);
+      clearInterval(tick);
+      if (raceResult === 'timeout') {
+        pushLog('2/4 TIMEOUT: signInWithPassword did not resolve within 15s');
+        setError('انتهت مهلة الاتصال بالخادم أثناء تسجيل الدخول.');
+        // Still await it in the background so we at least log a late result.
+        signInPromise.then(
+          (r) => pushLog(`2/4 (late) resolved: session=${!!r.data?.session} error=${JSON.stringify(r.error)}`),
+          (e) => pushLog(`2/4 (late) rejected: ${e instanceof Error ? e.message : String(e)}`)
+        );
+        return;
+      }
+      const { data: signInData, error: signInError } = raceResult;
       pushLog(`2/4 done: session=${!!signInData?.session} userId=${signInData?.user?.id ?? 'none'} error=${JSON.stringify(signInError)}`);
       if (signInError) {
         setError('كلمة المرور غير صحيحة.');
