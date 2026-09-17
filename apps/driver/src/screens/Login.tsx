@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme';
 
@@ -7,6 +7,16 @@ interface LoginProps {
   onSignup: () => void;
   onLoggedIn: () => void;
 }
+
+// Temporary diagnostic build marker + step-by-step on-screen log. Every fix
+// so far (url-polyfill, try/catch, error boundary) tested clean via a plain
+// Node.js script hitting the exact same endpoints, yet the real device still
+// silently lands back on this screen with zero error from any of those nets
+// — which stops making sense unless either the failure is somewhere this
+// specific runtime hits that Node never can, or the device is still running
+// a stale build. BUILD_MARKER answers "is this really the new code," and the
+// log answers "which exact step it gets to" — both remove guessing entirely.
+const BUILD_MARKER = 'BUILD-DIAG-1';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
@@ -16,6 +26,9 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+
+  const pushLog = (msg: string) => setLog((l) => [...l, `${new Date().toISOString().slice(11, 19)} ${msg}`]);
 
   const doLogin = async () => {
     if (!loginId.trim() || !password) {
@@ -24,10 +37,13 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
     }
     setBusy(true);
     setError('');
+    setLog([]);
     try {
+      pushLog('1/4 calling resolve-login-email…');
       const { data, error: fnError } = await supabase.functions.invoke<{ email: string; status: string }>('resolve-login-email', {
         body: { loginId: loginId.trim(), role: 'driver' }
       });
+      pushLog(`1/4 done: data=${JSON.stringify(data)} error=${JSON.stringify(fnError)}`);
       if (fnError || !data?.email) {
         setError('لا يوجد حساب بهذا الاسم أو الرقم.');
         return;
@@ -36,11 +52,17 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
         setError('هذا الحساب موقوف — راجع الإدارة.');
         return;
       }
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password });
+      pushLog('2/4 calling signInWithPassword…');
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password });
+      pushLog(`2/4 done: session=${!!signInData?.session} userId=${signInData?.user?.id ?? 'none'} error=${JSON.stringify(signInError)}`);
       if (signInError) {
         setError('كلمة المرور غير صحيحة.');
         return;
       }
+      pushLog('3/4 sign-in ok, verifying getSession() reads it back…');
+      const { data: sessionCheck } = await supabase.auth.getSession();
+      pushLog(`3/4 getSession() -> session present=${!!sessionCheck.session}`);
+      pushLog('4/4 calling onLoggedIn()');
       onLoggedIn();
     } catch (e) {
       // Anything that throws instead of returning {error} (a genuine network
@@ -48,6 +70,7 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
       // still cleared via finally, but with no visible feedback at all, which
       // looked exactly like "briefly loads then does nothing." Surfacing the
       // real message is what actually lets this get diagnosed and fixed.
+      pushLog(`THREW: ${e instanceof Error ? e.message : String(e)}`);
       setError(`خطأ غير متوقع: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
@@ -55,7 +78,8 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
   };
 
   return (
-    <View style={styles.wrap}>
+    <ScrollView contentContainerStyle={styles.wrap}>
+      <Text style={styles.buildMarker}>{BUILD_MARKER}</Text>
       <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>دخول السائق</Text>
       <Text style={styles.subtitle}>اسم المستخدم أو رقم الهاتف وكلمة المرور التي زوّدك بها الأدمن.</Text>
@@ -79,12 +103,25 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
       <Pressable onPress={onSignup} style={styles.secondaryBtn}>
         <Text style={styles.secondaryBtnText}>تسجيل سائق جديد</Text>
       </Pressable>
-    </View>
+
+      {log.length > 0 && (
+        <View style={styles.logBox}>
+          {log.map((l, i) => (
+            <Text key={i} style={styles.logText}>
+              {l}
+            </Text>
+          ))}
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: COLORS.white, padding: 24, justifyContent: 'center' },
+  wrap: { flexGrow: 1, backgroundColor: COLORS.white, padding: 24, justifyContent: 'center' },
+  buildMarker: { fontSize: 10, color: COLORS.textMuted, textAlign: 'center', writingDirection: 'ltr', marginBottom: 6 },
+  logBox: { marginTop: 18, backgroundColor: '#f4f4f4', borderRadius: 11, padding: 10 },
+  logText: { fontSize: 10, color: COLORS.black, writingDirection: 'ltr', textAlign: 'left', marginBottom: 3 },
   logo: { width: 140, height: 100, alignSelf: 'center', marginBottom: 18 },
   title: { fontSize: 20, fontWeight: '900', textAlign: 'right', color: COLORS.black },
   subtitle: { fontSize: 12.5, color: COLORS.textMuted, textAlign: 'right', marginTop: 6, marginBottom: 20, lineHeight: 19 },
