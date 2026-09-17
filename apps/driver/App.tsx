@@ -8,10 +8,19 @@ import Signup from './src/screens/Signup';
 import Pending from './src/screens/Pending';
 import Home from './src/screens/Home';
 import { COLORS } from './src/theme';
+import ErrorBoundary from './src/ErrorBoundary';
 
 type AuthScreen = 'login' | 'signup';
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
+  );
+}
+
+function AppInner() {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const { driver, loading, setDriver } = useDriverProfile(userId ?? null);

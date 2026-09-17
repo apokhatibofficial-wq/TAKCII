@@ -23,22 +23,45 @@ export function useDriverProfile(userId: string | null) {
       .select('*')
       .eq('id', userId)
       .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        setDriver(data ? rowToCamel<Driver>(data) : null);
-        setLoading(false);
-      });
+      .then(
+        ({ data }) => {
+          if (cancelled) return;
+          setDriver(data ? rowToCamel<Driver>(data) : null);
+          setLoading(false);
+        },
+        () => {
+          // A rejected promise here (rather than an {error} field) previously
+          // left loading stuck at true forever with no feedback at all.
+          if (cancelled) return;
+          setDriver(null);
+          setLoading(false);
+        }
+      );
 
-    const channel = supabase
-      .channel(`driver-profile:${userId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${userId}` }, (payload) => {
-        setDriver(rowToCamel<Driver>(payload.new as Record<string, unknown>));
-      })
-      .subscribe();
+    // Realtime setup wrapped defensively: it runs immediately after every
+    // login, before the app ever reaches Home, and nothing upstream of this
+    // hook could catch it if it threw — a bad channel/WebSocket failure here
+    // would have looked exactly like "briefly loads then back to login,"
+    // indistinguishable from an auth problem.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`driver-profile:${userId}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${userId}` }, (payload) => {
+          setDriver(rowToCamel<Driver>(payload.new as Record<string, unknown>));
+        })
+        .subscribe();
+    } catch {
+      channel = null;
+    }
 
     return () => {
       cancelled = true;
-      channel.unsubscribe();
+      try {
+        channel?.unsubscribe();
+      } catch {
+        // ignore
+      }
     };
   }, [userId]);
 
