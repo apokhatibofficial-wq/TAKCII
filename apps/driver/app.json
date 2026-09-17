@@ -34,7 +34,8 @@
         }
       ],
       "expo-audio",
-      "./plugins/withReleaseSigning.js"
+      "./plugins/withReleaseSigning.js",
+      "@sentry/react-native"
     ]
   }
 }

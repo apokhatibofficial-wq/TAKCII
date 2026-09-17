@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { supabase } from './src/lib/supabase';
 import { useDriverProfile } from './src/hooks/useDriverProfile';
 import Login from './src/screens/Login';
@@ -13,13 +14,17 @@ import { readAndClearLastCrash, readAndClearLastBreadcrumb } from './src/lib/cra
 
 type AuthScreen = 'login' | 'signup';
 
-export default function App() {
+function App() {
   return (
     <ErrorBoundary>
       <AppInner />
     </ErrorBoundary>
   );
 }
+
+// A no-op wrapper until EXPO_PUBLIC_SENTRY_DSN is set (src/lib/sentry.ts) —
+// adds React render-tree context to whatever Sentry.init captures.
+export default Sentry.wrap(App);
 
 function AppInner() {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);

@@ -9,6 +9,7 @@ import { registerRootComponent } from 'expo';
 
 import App from './App';
 import { installGlobalCrashLogger } from './src/lib/crashLog';
+import { initSentry } from './src/lib/sentry';
 
 // Must run before any screen mounts: catches an uncaught JS exception
 // anywhere outside React's render phase (an effect, a callback, an
@@ -16,6 +17,10 @@ import { installGlobalCrashLogger } from './src/lib/crashLog';
 // so the next launch can show what actually threw instead of just the
 // OS's generic "keeps stopping" dialog.
 installGlobalCrashLogger();
+
+// A no-op until EXPO_PUBLIC_SENTRY_DSN is set — see src/lib/sentry.ts for
+// why this exists alongside the ErrorUtils logger above.
+initSentry();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
