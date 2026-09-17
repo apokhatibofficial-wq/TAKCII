@@ -16,7 +16,7 @@ interface LoginProps {
 // specific runtime hits that Node never can, or the device is still running
 // a stale build. BUILD_MARKER answers "is this really the new code," and the
 // log answers "which exact step it gets to" — both remove guessing entirely.
-const BUILD_MARKER = 'BUILD-DIAG-1';
+const BUILD_MARKER = 'BUILD-DIAG-2';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the

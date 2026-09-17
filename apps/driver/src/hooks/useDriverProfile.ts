@@ -9,6 +9,29 @@ import { rowToCamel, type Driver } from '@takc/shared';
 export function useDriverProfile(userId: string | null) {
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks which userId {driver, loading} currently describe. THE actual bug
+  // behind "logs in, briefly loads, silently bounces back to Login every
+  // single time, with zero error anywhere": right after a successful sign-in,
+  // App.tsx's userId flips from null to the new id in one render. In THAT
+  // SAME render, before this hook's own effect has run at all, `driver` and
+  // `loading` are still whatever they settled to for the OLD (null) userId —
+  // driver=null, loading=false. App.tsx's own effect that kicks out a
+  // driver whose profile is missing runs in that identical effect flush and
+  // reads exactly that stale pair (userId=<new id>, driver=null,
+  // loading=false), which satisfies its "no profile" condition and signs the
+  // user right back out — before the real fetch below ever gets a chance to
+  // run. An effect-only reset can't fix this: it would update loading/driver
+  // one render too late, after the sibling effect already read the stale
+  // values. Resetting synchronously during render — a documented React
+  // pattern for exactly this ("adjusting state when a prop changes") — makes
+  // React re-render immediately and bail out the stale version before any
+  // effect for it ever runs, closing the race entirely.
+  const [trackedUserId, setTrackedUserId] = useState<string | null>(null);
+  if (userId !== trackedUserId) {
+    setTrackedUserId(userId);
+    setDriver(null);
+    setLoading(!!userId);
+  }
 
   useEffect(() => {
     if (!userId) {
