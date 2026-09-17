@@ -33,7 +33,8 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "./plugins/withReleaseSigning.js"
     ]
   }
 }
