@@ -9,18 +9,17 @@ interface LoginProps {
   onLoggedIn: () => void;
 }
 
-// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-5's
-// breadcrumb never showed up after the crash either, even though the first
-// one fires before any of Home.tsx's own code runs — meaning either the
-// AsyncStorage write doesn't survive a crash this close after it (writes
-// can be buffered and lost if the process dies before they flush to disk),
-// or the crash isn't in Home.tsx's mount sequence at all. Logging further
-// can't distinguish those, so DIAG-6 bisects directly instead: Home.tsx's
-// two temporary DIAG_DISABLE_* flags turn off expo-audio's player and
-// expo-location's background task (the concrete native-bridge calls Home
-// makes unconditionally on mount) to see whether the crash still happens
-// with neither running.
-const BUILD_MARKER = 'BUILD-DIAG-6';
+// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-6
+// bisected out expo-audio and expo-location entirely and the Home-screen
+// crash still reproduced — both ruled out together. JS-side techniques
+// (ErrorUtils hook, proactive AsyncStorage breadcrumbs, direct bisection)
+// have exhausted what they can tell us about a failure that apparently
+// doesn't route through the JS layer at all. This build adds Sentry, whose
+// Android crash handler runs beneath JS entirely (a signal handler that
+// writes a report before the process dies) — the next crash should show up
+// directly in the Sentry dashboard with a real native stack trace, ending
+// the guessing.
+const BUILD_MARKER = 'BUILD-DIAG-7-SENTRY';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
