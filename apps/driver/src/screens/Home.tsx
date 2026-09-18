@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { supabase } from '../lib/supabase';
 import { isBackgroundLocationRunning, requestLocationPermissions, startBackgroundLocation, stopBackgroundLocation } from '../location/backgroundTask';
 import { useDriverRide } from '../hooks/useDriverRide';
 import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
-import { COLORS } from '../theme';
+import { COLORS, FONT } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
-import { writeBreadcrumb } from '../lib/crashLog';
 
 const RINGTONE = require('../../assets/ringtone.wav');
+const TAXI_WATERMARK = require('../../assets/taxi-watermark.png');
 
 const TRIP_TITLES: Record<string, string> = { toPickup: 'في الطريق إلى الراكب', arrived: 'بانتظار صعود الراكب', onTrip: 'الرحلة جارية' };
 const TRIP_ACTION_LABELS: Record<string, string> = { toPickup: 'وصلت إلى الراكب', arrived: 'بدء الرحلة', onTrip: 'إنهاء الرحلة' };
@@ -27,11 +28,6 @@ function fmtClock(totalSeconds: number): string {
 // + the negotiation flow, not route browsing, so this uses the prototype's
 // own "liteMap" fallback styling instead of pulling in a native map library.
 export default function Home({ driver, setDriver, onLogout }: { driver: Driver; setDriver: (d: Driver) => void; onLogout: () => void }) {
-  // BUILD-DIAG-4's ErrorUtils hook never caught the reported crash, meaning
-  // it isn't a catchable JS exception — see crashLog.ts. Written before each
-  // suspect call (not after a failure) so the last one recorded on the next
-  // launch marks where execution actually stopped, crash-catchable or not.
-  writeBreadcrumb('home_render_start');
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [riderName, setRiderName] = useState('');
   const { pricing, settings } = useFare();
@@ -45,12 +41,8 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // is required here: a driver whose phone is on silent/vibrate must still
   // hear a ride request, which is the whole point of "صوت عالي".
   const ringPlayer = useAudioPlayer(RINGTONE);
-  writeBreadcrumb('audio_player_created');
   useEffect(() => {
-    writeBreadcrumb('audio_mode_set_start');
-    setAudioModeAsync({ playsInSilentMode: true })
-      .then(() => writeBreadcrumb('audio_mode_set_done'))
-      .catch(() => writeBreadcrumb('audio_mode_set_rejected'));
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
   }, []);
   useEffect(() => {
     try {
@@ -95,18 +87,14 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // having been started for this app instance — reconcile on mount/whenever
   // it changes so "online" in the DB never lies about being tracked.
   useEffect(() => {
-    writeBreadcrumb(`location_effect_start online=${driver.online}`);
     if (!driver.online) return;
     let cancelled = false;
     (async () => {
-      writeBreadcrumb('location_checking_already_running');
       const already = await isBackgroundLocationRunning();
       if (already || cancelled) return;
-      writeBreadcrumb('location_requesting_permissions');
       const granted = await requestLocationPermissions();
       if (cancelled) return;
       if (!granted) {
-        writeBreadcrumb('location_permission_denied');
         await supabase.from('drivers').update({ online: false }).eq('id', driver.id);
         if (!cancelled) {
           setDriver({ ...driver, online: false });
@@ -114,9 +102,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         }
         return;
       }
-      writeBreadcrumb('location_starting_background_task');
       await startBackgroundLocation();
-      writeBreadcrumb('location_background_task_started');
     })();
     return () => {
       cancelled = true;
@@ -173,10 +159,11 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const reqHasFare = !!(incoming && incoming.fareAmount != null) && settings?.showToRiders !== false;
   const reqTripMeta = incoming && incoming.km != null && incoming.minutes != null ? `${incoming.km.toFixed(1)} كم · ${Math.max(1, Math.round(incoming.minutes))} دقيقة` : '';
 
-  writeBreadcrumb('home_render_reached_jsx');
   return (
     <View style={styles.root}>
-      <View style={styles.mapBg} />
+      <LinearGradient colors={[COLORS.cream, '#e9e4d4']} style={styles.mapBg}>
+        <Image source={TAXI_WATERMARK} style={styles.mapWatermark} resizeMode="contain" />
+      </LinearGradient>
 
       <View style={styles.topBar}>
         <View style={styles.profileCard}>
@@ -236,7 +223,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
           </View>
         ) : (
           <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={styles.onlineCard}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.onlineTitle}>{driver.online ? 'أنت متصل — جاهز للطلبات' : 'أنت غير متصل'}</Text>
                 <Text style={styles.onlineSub}>{driver.online ? 'يتم تحديث موقعك تلقائياً' : 'فعّل الاتصال لاستقبال طلبات الركاب'}</Text>
@@ -327,70 +314,104 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.white },
-  mapBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#e9e4d4' },
+  mapBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  mapWatermark: { width: 130, height: 290, opacity: 0.16 },
   topBar: { padding: 12, flexDirection: 'row', gap: 8, alignItems: 'center' },
-  profileCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 14, padding: 10, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10, elevation: 3 },
+  profileCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    padding: 10,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    elevation: 3,
+    shadowColor: COLORS.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
+  },
   avatar: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.cream, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 13, fontWeight: '800', color: COLORS.black },
-  profileName: { fontSize: 13, fontWeight: '700', color: COLORS.black, textAlign: 'right' },
-  profileSub: { fontSize: 11, color: COLORS.textMuted, textAlign: 'right', marginTop: 2 },
+  avatarText: { fontSize: 13, fontFamily: FONT.extraBold, color: COLORS.black },
+  profileName: { fontSize: 13, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right' },
+  profileSub: { fontSize: 11, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'right', marginTop: 2 },
   iconBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: COLORS.white, borderWidth: 1, borderColor: 'rgba(24,22,25,0.1)', alignItems: 'center', justifyContent: 'center', elevation: 3 },
-  iconBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.danger },
+  iconBtnText: { fontSize: 11, fontFamily: FONT.bold, color: COLORS.danger },
   waitBtn: { position: 'absolute', top: 120, left: 12, width: 70, borderWidth: 2, borderColor: 'rgba(24,22,25,0.1)', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', gap: 5, backgroundColor: COLORS.white, elevation: 4 },
   waitBtnActive: { borderColor: COLORS.danger, backgroundColor: COLORS.danger },
-  waitBtnLabel: { fontSize: 10, fontWeight: '700', color: COLORS.black },
+  waitBtnLabel: { fontSize: 10, fontFamily: FONT.bold, color: COLORS.black },
   waitBtnLabelActive: { color: COLORS.white },
-  waitBtnClock: { fontSize: 12, fontWeight: '800', color: COLORS.white },
-  sheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 18, paddingTop: 16 },
+  waitBtnClock: { fontSize: 12, fontFamily: FONT.extraBold, color: COLORS.white },
+  sheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    padding: 18,
+    paddingTop: 16,
+    elevation: 12,
+    shadowColor: COLORS.black,
+    shadowOpacity: 0.18,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: -6 }
+  },
   grabber: { width: 44, height: 4, borderRadius: 4, backgroundColor: '#e2dcca', alignSelf: 'center', marginBottom: 14 },
   waitPanel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.cream, borderRadius: 14, padding: 13, marginBottom: 12 },
-  waitPanelTitle: { fontSize: 12.5, fontWeight: '700', color: COLORS.black, textAlign: 'right' },
-  waitPanelSub: { fontSize: 11.5, color: COLORS.textMuted, textAlign: 'right', marginTop: 4 },
-  waitPanelFare: { fontSize: 16, fontWeight: '800', color: COLORS.black },
-  onlineTitle: { fontSize: 17, fontWeight: '800', color: COLORS.black, textAlign: 'right' },
-  onlineSub: { fontSize: 12, color: COLORS.textMuted, textAlign: 'right', marginTop: 4 },
-  onlineSwitch: { width: 62, height: 34, borderRadius: 20, backgroundColor: '#ddd7c7', padding: 3, justifyContent: 'center', alignItems: 'flex-end' },
+  waitPanelTitle: { fontSize: 12.5, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right' },
+  waitPanelSub: { fontSize: 11.5, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'right', marginTop: 4 },
+  waitPanelFare: { fontSize: 16, fontFamily: FONT.extraBold, color: COLORS.black },
+  onlineCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: COLORS.black,
+    borderRadius: 18,
+    padding: 16
+  },
+  onlineTitle: { fontSize: 17, fontFamily: FONT.extraBold, color: COLORS.white, textAlign: 'right' },
+  onlineSub: { fontSize: 12, fontFamily: FONT.regular, color: 'rgba(244,239,225,0.65)', textAlign: 'right', marginTop: 4 },
+  onlineSwitch: { width: 62, height: 34, borderRadius: 20, backgroundColor: 'rgba(244,239,225,0.18)', padding: 3, justifyContent: 'center', alignItems: 'flex-end' },
   onlineSwitchOn: { backgroundColor: COLORS.green, alignItems: 'flex-start' },
   onlineKnob: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.white },
   statsRow: { flexDirection: 'row', gap: 9, marginTop: 14 },
   statCard: { flex: 1, backgroundColor: '#faf8f2', borderRadius: 14, padding: 12, alignItems: 'center' },
   statCardYellow: { backgroundColor: COLORS.yellow },
-  statNum: { fontSize: 19, fontWeight: '900', color: COLORS.black },
-  statLabel: { fontSize: 11, fontWeight: '500', color: COLORS.textMuted, marginTop: 5, textAlign: 'center' },
-  statLabelDark: { fontSize: 11, fontWeight: '500', color: COLORS.black, marginTop: 5, textAlign: 'center' },
-  tripTitle: { fontSize: 17, fontWeight: '800', color: COLORS.black, textAlign: 'right' },
+  statNum: { fontSize: 19, fontFamily: FONT.heavy, color: COLORS.black },
+  statLabel: { fontSize: 11, fontFamily: FONT.medium, color: COLORS.textMuted, marginTop: 5, textAlign: 'center' },
+  statLabelDark: { fontSize: 11, fontFamily: FONT.medium, color: COLORS.black, marginTop: 5, textAlign: 'center' },
+  tripTitle: { fontSize: 17, fontFamily: FONT.extraBold, color: COLORS.black, textAlign: 'right' },
   tripRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tripRowText: { fontSize: 13, fontWeight: '600', color: COLORS.black, textAlign: 'right', flex: 1 },
+  tripRowText: { fontSize: 13, fontFamily: FONT.medium, color: COLORS.black, textAlign: 'right', flex: 1 },
   dotGreen: { width: 9, height: 9, borderRadius: 5, backgroundColor: COLORS.green },
   dotBlack: { width: 9, height: 9, borderRadius: 2, backgroundColor: COLORS.black },
   advanceBtn: { width: '100%', marginTop: 16, paddingVertical: 15, borderRadius: 14, backgroundColor: COLORS.green, alignItems: 'center' },
-  advanceBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 15 },
+  advanceBtnText: { color: COLORS.white, fontFamily: FONT.extraBold, fontSize: 15 },
   incomingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: COLORS.black },
   incomingContent: { padding: 22, paddingTop: 24, minHeight: '100%' },
   incomingHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pulseDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.yellow },
-  incomingHeaderText: { fontSize: 13, fontWeight: '700', color: COLORS.yellow },
+  incomingHeaderText: { fontSize: 13, fontFamily: FONT.bold, color: COLORS.yellow },
   muteBtn: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10 },
-  muteBtnText: { color: COLORS.cream, fontSize: 11, fontWeight: '600' },
+  muteBtnText: { color: COLORS.cream, fontSize: 11, fontFamily: FONT.medium },
   countdownWrap: { marginVertical: 22, alignSelf: 'center', width: 118, height: 118, borderRadius: 59, borderWidth: 3, borderColor: COLORS.yellow, alignItems: 'center', justifyContent: 'center' },
-  countdownNum: { fontSize: 40, fontWeight: '900', color: COLORS.yellow },
-  countdownLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(244,239,225,0.6)', marginTop: 4 },
+  countdownNum: { fontSize: 40, fontFamily: FONT.heavy, color: COLORS.yellow },
+  countdownLabel: { fontSize: 11, fontFamily: FONT.medium, color: 'rgba(244,239,225,0.6)', marginTop: 4 },
   reqCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 20, padding: 18 },
   reqRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingBottom: 13, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
   reqRowLast: { paddingTop: 13, paddingBottom: 0, borderBottomWidth: 0 },
   dotGreenSm: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e' },
   dotYellowSm: { width: 10, height: 10, borderRadius: 2, backgroundColor: COLORS.yellow },
-  reqLabel: { fontSize: 10.5, fontWeight: '500', color: 'rgba(244,239,225,0.6)', textAlign: 'right' },
-  reqValue: { fontSize: 14.5, fontWeight: '700', color: COLORS.cream, textAlign: 'right', marginTop: 4 },
-  reqDistance: { fontSize: 12, fontWeight: '700', color: COLORS.yellow },
+  reqLabel: { fontSize: 10.5, fontFamily: FONT.medium, color: 'rgba(244,239,225,0.6)', textAlign: 'right' },
+  reqValue: { fontSize: 14.5, fontFamily: FONT.bold, color: COLORS.cream, textAlign: 'right', marginTop: 4 },
+  reqDistance: { fontSize: 12, fontFamily: FONT.bold, color: COLORS.yellow },
   fareBox: { marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.yellow, borderRadius: 16, padding: 14 },
-  fareBoxTitle: { fontSize: 11.5, fontWeight: '600', color: COLORS.black, textAlign: 'right' },
-  fareBoxMeta: { fontSize: 11, color: COLORS.black, opacity: 0.7, textAlign: 'right', marginTop: 2 },
-  fareBoxAmount: { fontSize: 22, fontWeight: '900', color: COLORS.black },
-  riderLine: { marginTop: 12, fontSize: 12, color: 'rgba(244,239,225,0.65)', textAlign: 'right' },
+  fareBoxTitle: { fontSize: 11.5, fontFamily: FONT.medium, color: COLORS.black, textAlign: 'right' },
+  fareBoxMeta: { fontSize: 11, fontFamily: FONT.regular, color: COLORS.black, opacity: 0.7, textAlign: 'right', marginTop: 2 },
+  fareBoxAmount: { fontSize: 22, fontFamily: FONT.heavy, color: COLORS.black },
+  riderLine: { marginTop: 12, fontSize: 12, fontFamily: FONT.regular, color: 'rgba(244,239,225,0.65)', textAlign: 'right' },
   incomingActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   rejectBtn: { flex: 1, paddingVertical: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.22)', borderRadius: 16, alignItems: 'center' },
-  rejectBtnText: { color: COLORS.cream, fontWeight: '800', fontSize: 15 },
+  rejectBtnText: { color: COLORS.cream, fontFamily: FONT.extraBold, fontSize: 15 },
   acceptBtn: { flex: 2, paddingVertical: 17, borderRadius: 16, backgroundColor: COLORS.yellow, alignItems: 'center' },
-  acceptBtnText: { color: COLORS.black, fontWeight: '900', fontSize: 16 }
+  acceptBtnText: { color: COLORS.black, fontFamily: FONT.heavy, fontSize: 16 }
 });

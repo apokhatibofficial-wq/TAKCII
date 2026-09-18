@@ -1,33 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { COLORS } from '../theme';
+import { COLORS, FONT } from '../theme';
 
 interface LoginProps {
   onSignup: () => void;
   onLoggedIn: () => void;
 }
-
-// Temporary diagnostic build marker + step-by-step on-screen log — kept for
-// now as a safety net even though the root cause below is fixed, until a
-// real device confirms it. Sentry (BUILD-DIAG-7) caught the actual crash:
-// android.os.Parcel in readException, IllegalArgumentException "requested
-// job be persisted without holding RECEIVE_BOOT_COMPLETED permission",
-// thrown from expo-task-manager's TaskBroadcastReceiver. Home.tsx imports
-// src/location/backgroundTask.ts, which calls TaskManager.defineTask() at
-// module scope (required — Expo's docs are explicit that this must run
-// outside any component so the task survives an app kill) — so it fires
-// the instant Home.tsx loads, before any button press, regardless of
-// whether background location is ever actually started. Registering a
-// task meant to survive a reboot requires RECEIVE_BOOT_COMPLETED in
-// AndroidManifest; app.json's permissions list didn't have it. That's a
-// genuine Android API contract violation, thrown by the system service
-// and marshaled back across the Binder/Parcel boundary — which is exactly
-// why no JS-side handler (ErrorUtils, try/catch, error boundaries) could
-// ever have caught it, and why disabling the explicit start/stop calls in
-// BUILD-DIAG-6 didn't stop it either.
-const BUILD_MARKER = 'BUILD-8-RECEIVE-BOOT-COMPLETED-FIX';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
@@ -37,47 +16,6 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [log, setLog] = useState<string[]>([]);
-
-  const pushLog = (msg: string) => setLog((l) => [...l, `${new Date().toISOString().slice(11, 19)} ${msg}`]);
-
-  // Races an arbitrary probe against a 3s tick + 15s timeout, same shape as
-  // the signInWithPassword race below. Isolates one native bridge call at a
-  // time so a freeze in fetch or in AsyncStorage shows up distinctly instead
-  // of both being blamed on "the login call."
-  const runProbe = (label: string, fn: () => Promise<unknown>) => {
-    const tick = setInterval(() => pushLog(`${label}: … still waiting`), 3000);
-    const timeoutPromise = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 15000));
-    Promise.race([fn().then(() => 'ok' as const).catch((e) => ({ threw: e })), timeoutPromise])
-      .then((result) => {
-        clearInterval(tick);
-        if (result === 'timeout') pushLog(`${label}: TIMEOUT after 15s`);
-        else if (result === 'ok') pushLog(`${label}: OK`);
-        else pushLog(`${label}: ERROR ${result.threw instanceof Error ? result.threw.message : String(result.threw)}`);
-      })
-      .catch((e) => {
-        clearInterval(tick);
-        pushLog(`${label}: THREW ${e instanceof Error ? e.message : String(e)}`);
-      });
-  };
-
-  // Auto-runs on screen load, before any button press, so the two native
-  // bridge calls a real login makes (and a Node.js reproduction never
-  // touches) are tested unconditionally — a screenshot taken right after
-  // opening the app already carries this data.
-  useEffect(() => {
-    pushLog('A/fetch: probing auth server directly…');
-    runProbe('A/fetch', () =>
-      fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
-        headers: { apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '' }
-      })
-    );
-    pushLog('B/storage: probing AsyncStorage…');
-    runProbe('B/storage', async () => {
-      await AsyncStorage.setItem('takc_diag_probe', String(Date.now()));
-      return AsyncStorage.getItem('takc_diag_probe');
-    });
-  }, []);
 
   const doLogin = async () => {
     if (!loginId.trim() || !password) {
@@ -86,13 +24,10 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
     }
     setBusy(true);
     setError('');
-    pushLog('--- login attempt ---');
     try {
-      pushLog('1/4 calling resolve-login-email…');
       const { data, error: fnError } = await supabase.functions.invoke<{ email: string; status: string }>('resolve-login-email', {
         body: { loginId: loginId.trim(), role: 'driver' }
       });
-      pushLog(`1/4 done: data=${JSON.stringify(data)} error=${JSON.stringify(fnError)}`);
       if (fnError || !data?.email) {
         setError('لا يوجد حساب بهذا الاسم أو الرقم.');
         return;
@@ -101,47 +36,17 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
         setError('هذا الحساب موقوف — راجع الإدارة.');
         return;
       }
-      pushLog('2/4 calling signInWithPassword…');
-      // A screenshot from BUILD-DIAG-1 showed the log stopping right after
-      // this line — resolve-login-email had already returned in under a
-      // second, but signInWithPassword never printed its "done" line before
-      // the screenshot was taken. A tick every 3s while it's still pending,
-      // plus a hard 15s timeout, tells us whether it eventually resolves
-      // slowly or genuinely never does — a distinction that changes what
-      // the real fix even could be.
-      const tick = setInterval(() => pushLog('2/4 … still waiting on signInWithPassword'), 3000);
-      const signInPromise = supabase.auth.signInWithPassword({ email: data.email, password });
-      const timeoutPromise = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 15000));
-      const raceResult = await Promise.race([signInPromise, timeoutPromise]);
-      clearInterval(tick);
-      if (raceResult === 'timeout') {
-        pushLog('2/4 TIMEOUT: signInWithPassword did not resolve within 15s');
-        setError('انتهت مهلة الاتصال بالخادم أثناء تسجيل الدخول.');
-        // Still await it in the background so we at least log a late result.
-        signInPromise.then(
-          (r) => pushLog(`2/4 (late) resolved: session=${!!r.data?.session} error=${JSON.stringify(r.error)}`),
-          (e) => pushLog(`2/4 (late) rejected: ${e instanceof Error ? e.message : String(e)}`)
-        );
-        return;
-      }
-      const { data: signInData, error: signInError } = raceResult;
-      pushLog(`2/4 done: session=${!!signInData?.session} userId=${signInData?.user?.id ?? 'none'} error=${JSON.stringify(signInError)}`);
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password });
       if (signInError) {
         setError('كلمة المرور غير صحيحة.');
         return;
       }
-      pushLog('3/4 sign-in ok, verifying getSession() reads it back…');
-      const { data: sessionCheck } = await supabase.auth.getSession();
-      pushLog(`3/4 getSession() -> session present=${!!sessionCheck.session}`);
-      pushLog('4/4 calling onLoggedIn()');
       onLoggedIn();
     } catch (e) {
-      // Anything that throws instead of returning {error} (a genuine network
-      // failure, a bug in a dependency) was silently swallowed before — busy
-      // still cleared via finally, but with no visible feedback at all, which
-      // looked exactly like "briefly loads then does nothing." Surfacing the
-      // real message is what actually lets this get diagnosed and fixed.
-      pushLog(`THREW: ${e instanceof Error ? e.message : String(e)}`);
+      // A genuine network failure or dependency bug throws instead of
+      // returning {error} — without this, busy still cleared via finally
+      // but with zero visible feedback, indistinguishable from the screen
+      // just doing nothing.
       setError(`خطأ غير متوقع: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
@@ -150,7 +55,6 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <Text style={styles.buildMarker}>{BUILD_MARKER}</Text>
       <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>دخول السائق</Text>
       <Text style={styles.subtitle}>اسم المستخدم أو رقم الهاتف وكلمة المرور التي زوّدك بها الأدمن.</Text>
@@ -174,29 +78,16 @@ export default function Login({ onSignup, onLoggedIn }: LoginProps) {
       <Pressable onPress={onSignup} style={styles.secondaryBtn}>
         <Text style={styles.secondaryBtnText}>تسجيل سائق جديد</Text>
       </Pressable>
-
-      {log.length > 0 && (
-        <View style={styles.logBox}>
-          {log.map((l, i) => (
-            <Text key={i} style={styles.logText}>
-              {l}
-            </Text>
-          ))}
-        </View>
-      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, backgroundColor: COLORS.white, padding: 24, justifyContent: 'center' },
-  buildMarker: { fontSize: 10, color: COLORS.textMuted, textAlign: 'center', writingDirection: 'ltr', marginBottom: 6 },
-  logBox: { marginTop: 18, backgroundColor: '#f4f4f4', borderRadius: 11, padding: 10 },
-  logText: { fontSize: 10, color: COLORS.black, writingDirection: 'ltr', textAlign: 'left', marginBottom: 3 },
   logo: { width: 140, height: 100, alignSelf: 'center', marginBottom: 18 },
-  title: { fontSize: 20, fontWeight: '900', textAlign: 'right', color: COLORS.black },
-  subtitle: { fontSize: 12.5, color: COLORS.textMuted, textAlign: 'right', marginTop: 6, marginBottom: 20, lineHeight: 19 },
-  label: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, textAlign: 'right', marginBottom: 7 },
+  title: { fontSize: 20, fontFamily: FONT.heavy, textAlign: 'right', color: COLORS.black },
+  subtitle: { fontSize: 12.5, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'right', marginTop: 6, marginBottom: 20, lineHeight: 19 },
+  label: { fontSize: 12, fontFamily: FONT.medium, color: COLORS.textMuted, textAlign: 'right', marginBottom: 7 },
   input: {
     borderWidth: 1.5,
     borderColor: '#e7e1d0',
@@ -205,13 +96,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 14,
+    fontFamily: FONT.regular,
     textAlign: 'right',
     marginBottom: 14
   },
   errorBox: { backgroundColor: '#fdecec', borderRadius: 11, padding: 12, marginBottom: 4 },
-  errorText: { color: COLORS.danger, fontSize: 12, fontWeight: '600', textAlign: 'right' },
+  errorText: { color: COLORS.danger, fontSize: 12, fontFamily: FONT.medium, textAlign: 'right' },
   primaryBtn: { backgroundColor: COLORS.black, borderRadius: 14, paddingVertical: 15, marginTop: 14, alignItems: 'center' },
-  primaryBtnText: { color: COLORS.yellow, fontWeight: '800', fontSize: 15 },
+  primaryBtnText: { color: COLORS.yellow, fontFamily: FONT.extraBold, fontSize: 15 },
   secondaryBtn: { borderWidth: 1.5, borderColor: '#e7e1d0', borderRadius: 14, paddingVertical: 13, marginTop: 10, alignItems: 'center' },
-  secondaryBtnText: { color: COLORS.black, fontWeight: '700', fontSize: 13.5 }
+  secondaryBtnText: { color: COLORS.black, fontFamily: FONT.bold, fontSize: 13.5 }
 });

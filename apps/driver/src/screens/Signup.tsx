@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { COLORS } from '../theme';
+import { COLORS, FONT } from '../theme';
 
 interface SignupProps {
   onLogin: () => void;
@@ -125,16 +125,16 @@ function Field(props: {
 
 const styles = StyleSheet.create({
   wrap: { padding: 22, backgroundColor: COLORS.white },
-  title: { fontSize: 18, fontWeight: '900', textAlign: 'right', color: COLORS.black },
-  subtitle: { fontSize: 12, color: COLORS.textMuted, textAlign: 'right', marginTop: 5, marginBottom: 16, lineHeight: 18 },
+  title: { fontSize: 18, fontFamily: FONT.heavy, textAlign: 'right', color: COLORS.black },
+  subtitle: { fontSize: 12, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'right', marginTop: 5, marginBottom: 16, lineHeight: 18 },
   row: { flexDirection: 'row', gap: 10 },
   field: { marginBottom: 12 },
-  label: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, textAlign: 'right', marginBottom: 7 },
-  input: { borderWidth: 1.5, borderColor: '#e7e1d0', borderRadius: 13, backgroundColor: '#faf8f2', paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, textAlign: 'right' },
+  label: { fontSize: 12, fontFamily: FONT.medium, color: COLORS.textMuted, textAlign: 'right', marginBottom: 7 },
+  input: { borderWidth: 1.5, borderColor: '#e7e1d0', borderRadius: 13, backgroundColor: '#faf8f2', paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, fontFamily: FONT.regular, textAlign: 'right' },
   errorBox: { backgroundColor: '#fdecec', borderRadius: 11, padding: 12, marginTop: 2, marginBottom: 4 },
-  errorText: { color: COLORS.danger, fontSize: 12, fontWeight: '600', textAlign: 'right' },
+  errorText: { color: COLORS.danger, fontSize: 12, fontFamily: FONT.medium, textAlign: 'right' },
   primaryBtn: { backgroundColor: COLORS.black, borderRadius: 14, paddingVertical: 15, marginTop: 16, alignItems: 'center' },
-  primaryBtnText: { color: COLORS.yellow, fontWeight: '800', fontSize: 14 },
+  primaryBtnText: { color: COLORS.yellow, fontFamily: FONT.extraBold, fontSize: 14 },
   secondaryBtn: { borderWidth: 1.5, borderColor: '#e7e1d0', borderRadius: 14, paddingVertical: 12, marginTop: 9, alignItems: 'center' },
-  secondaryBtnText: { color: COLORS.textMuted, fontWeight: '700', fontSize: 12.5 }
+  secondaryBtnText: { color: COLORS.textMuted, fontFamily: FONT.bold, fontSize: 12.5 }
 });

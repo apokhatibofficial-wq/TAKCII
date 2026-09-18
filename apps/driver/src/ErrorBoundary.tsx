@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from './theme';
+import { COLORS, FONT } from './theme';
 
 // Last-resort safety net: a render-phase error anywhere below this point
 // (React itself has no async try/catch equivalent for that) would otherwise
@@ -34,7 +34,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
 
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, backgroundColor: COLORS.white, padding: 20, paddingTop: 60 },
-  title: { fontSize: 18, fontWeight: '900', color: COLORS.danger, textAlign: 'right', marginBottom: 12 },
-  message: { fontSize: 14, fontWeight: '700', color: COLORS.black, textAlign: 'right', marginBottom: 16 },
-  stack: { fontSize: 11, color: COLORS.textMuted, textAlign: 'left', writingDirection: 'ltr' }
+  title: { fontSize: 18, fontFamily: FONT.heavy, color: COLORS.danger, textAlign: 'right', marginBottom: 12 },
+  message: { fontSize: 14, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right', marginBottom: 16 },
+  stack: { fontSize: 11, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'left', writingDirection: 'ltr' }
 });

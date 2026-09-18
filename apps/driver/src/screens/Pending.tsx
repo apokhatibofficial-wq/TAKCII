@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { COLORS } from '../theme';
+import { COLORS, FONT } from '../theme';
 import type { Driver } from '@takc/shared';
 
 // Ported from index.html's dPendingScreen block.
@@ -49,12 +49,12 @@ function Row({ label, value, ltr, tone }: { label: string; value: string; ltr?: 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: COLORS.white, padding: 26, justifyContent: 'center', alignItems: 'center' },
   icon: { fontSize: 44, marginBottom: 14 },
-  title: { fontSize: 21, fontWeight: '900', color: COLORS.black, textAlign: 'center' },
-  body: { fontSize: 13, color: COLORS.textMuted, textAlign: 'center', marginTop: 10, lineHeight: 21 },
+  title: { fontSize: 21, fontFamily: FONT.heavy, color: COLORS.black, textAlign: 'center' },
+  body: { fontSize: 13, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'center', marginTop: 10, lineHeight: 21 },
   card: { width: '100%', backgroundColor: COLORS.white, borderWidth: 1, borderColor: '#efe9d8', borderRadius: 16, padding: 14, marginTop: 20 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7 },
-  rowLabel: { fontSize: 12.5, color: COLORS.textMuted, fontWeight: '600' },
-  rowValue: { fontSize: 12.5, fontWeight: '600', color: COLORS.black },
+  rowLabel: { fontSize: 12.5, fontFamily: FONT.medium, color: COLORS.textMuted },
+  rowValue: { fontSize: 12.5, fontFamily: FONT.medium, color: COLORS.black },
   btn: { backgroundColor: COLORS.black, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, marginTop: 18 },
-  btnText: { color: COLORS.yellow, fontWeight: '800', fontSize: 14 }
+  btnText: { color: COLORS.yellow, fontFamily: FONT.extraBold, fontSize: 14 }
 });
