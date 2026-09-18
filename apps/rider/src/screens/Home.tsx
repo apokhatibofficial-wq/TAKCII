@@ -6,6 +6,7 @@ import { usePlacesSearch, type SearchPlace } from '../hooks/usePlacesSearch';
 import { useFare } from '../hooks/useFare';
 import { useRide } from '../hooks/useRide';
 import { useActiveAd } from '../hooks/useActiveAd';
+import { useDriverLocation } from '../hooks/useDriverLocation';
 import { distanceOrEstimate, reverseGeocode, type RouteResult } from '@takc/shared';
 
 interface Pickup {
@@ -38,6 +39,11 @@ export default function Home() {
   const { results, routes } = usePlacesSearch(from, query);
   const { format, fareFor, pricing, settings } = useFare();
   const { ride, requestRide, cancelRide, resetRide } = useRide();
+  // "riders view matched driver" only opens once the driver has accepted
+  // (toPickup+), matching RidePanel's own driverVisible check — passing the
+  // id any earlier would just query rows RLS denies.
+  const driverVisibleForLocation = ride?.driverId != null && ['toPickup', 'arrived', 'onTrip'].includes(ride.status);
+  const driverLocation = useDriverLocation(driverVisibleForLocation ? (ride!.driverId as string) : null);
 
   // Points picked on the map aren't in the places list, so they have no
   // entry in usePlacesSearch's route cache — measured separately below.
@@ -64,8 +70,9 @@ export default function Home() {
   const markers = useMemo<MapMarker[]>(() => {
     const list: MapMarker[] = [{ id: 'me', lat: pickup.lat, lng: pickup.lng, kind: 'me', title: 'موقعك' }];
     if (dest) list.push({ id: 'dest', lat: dest.lat, lng: dest.lng, kind: 'dest', title: dest.name });
+    if (driverLocation) list.push({ id: 'driver', lat: driverLocation.lat, lng: driverLocation.lng, kind: 'driver', title: 'السائق' });
     return list;
-  }, [pickup, dest]);
+  }, [pickup, dest, driverLocation]);
 
   // A single getCurrentPosition call often resolves with whatever fix is
   // available first (frequently a coarse network/Wi-Fi estimate, off by
