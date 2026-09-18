@@ -12,22 +12,6 @@ import { writeBreadcrumb } from '../lib/crashLog';
 
 const RINGTONE = require('../../assets/ringtone.wav');
 
-// --- Temporary bisection for the Home-screen native crash -----------------
-// The breadcrumb written at the very top of Home() (below) never showed up
-// after the crash, even though it fires before any of this component's own
-// code runs. That's consistent with two different explanations — the write
-// genuinely never lands (AsyncStorage can buffer a setItem and lose it if
-// the process dies before the buffer flushes to disk) or the crash isn't in
-// this file's mount sequence at all — and no amount of JS-side logging can
-// tell those apart. Direct bisection settles it either way: turn off the
-// two concrete native-bridge calls Home.tsx makes unconditionally on mount
-// (expo-audio's player, expo-location's background task) and see whether
-// the crash still happens with neither running. If it stops, flip these
-// back on one at a time to find which; if it still crashes, both are ruled
-// out together and the search moves to useDriverStats/useDriverRide/useFare.
-const DIAG_DISABLE_AUDIO = true;
-const DIAG_DISABLE_LOCATION = true;
-
 const TRIP_TITLES: Record<string, string> = { toPickup: 'في الطريق إلى الراكب', arrived: 'بانتظار صعود الراكب', onTrip: 'الرحلة جارية' };
 const TRIP_ACTION_LABELS: Record<string, string> = { toPickup: 'وصلت إلى الراكب', arrived: 'بدء الرحلة', onTrip: 'إنهاء الرحلة' };
 
@@ -60,17 +44,15 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // React Native has no Web Audio API to synthesize it live. playsInSilentMode
   // is required here: a driver whose phone is on silent/vibrate must still
   // hear a ride request, which is the whole point of "صوت عالي".
-  const ringPlayer = useAudioPlayer(DIAG_DISABLE_AUDIO ? undefined : RINGTONE);
+  const ringPlayer = useAudioPlayer(RINGTONE);
   writeBreadcrumb('audio_player_created');
   useEffect(() => {
-    if (DIAG_DISABLE_AUDIO) return;
     writeBreadcrumb('audio_mode_set_start');
     setAudioModeAsync({ playsInSilentMode: true })
       .then(() => writeBreadcrumb('audio_mode_set_done'))
       .catch(() => writeBreadcrumb('audio_mode_set_rejected'));
   }, []);
   useEffect(() => {
-    if (DIAG_DISABLE_AUDIO) return;
     try {
       ringPlayer.loop = true;
       ringPlayer.volume = 1;
@@ -114,7 +96,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   // it changes so "online" in the DB never lies about being tracked.
   useEffect(() => {
     writeBreadcrumb(`location_effect_start online=${driver.online}`);
-    if (DIAG_DISABLE_LOCATION || !driver.online) return;
+    if (!driver.online) return;
     let cancelled = false;
     (async () => {
       writeBreadcrumb('location_checking_already_running');

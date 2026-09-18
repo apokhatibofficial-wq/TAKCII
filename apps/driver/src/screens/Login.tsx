@@ -9,17 +9,25 @@ interface LoginProps {
   onLoggedIn: () => void;
 }
 
-// Temporary diagnostic build marker + step-by-step on-screen log. DIAG-6
-// bisected out expo-audio and expo-location entirely and the Home-screen
-// crash still reproduced — both ruled out together. JS-side techniques
-// (ErrorUtils hook, proactive AsyncStorage breadcrumbs, direct bisection)
-// have exhausted what they can tell us about a failure that apparently
-// doesn't route through the JS layer at all. This build adds Sentry, whose
-// Android crash handler runs beneath JS entirely (a signal handler that
-// writes a report before the process dies) — the next crash should show up
-// directly in the Sentry dashboard with a real native stack trace, ending
-// the guessing.
-const BUILD_MARKER = 'BUILD-DIAG-7-SENTRY';
+// Temporary diagnostic build marker + step-by-step on-screen log — kept for
+// now as a safety net even though the root cause below is fixed, until a
+// real device confirms it. Sentry (BUILD-DIAG-7) caught the actual crash:
+// android.os.Parcel in readException, IllegalArgumentException "requested
+// job be persisted without holding RECEIVE_BOOT_COMPLETED permission",
+// thrown from expo-task-manager's TaskBroadcastReceiver. Home.tsx imports
+// src/location/backgroundTask.ts, which calls TaskManager.defineTask() at
+// module scope (required — Expo's docs are explicit that this must run
+// outside any component so the task survives an app kill) — so it fires
+// the instant Home.tsx loads, before any button press, regardless of
+// whether background location is ever actually started. Registering a
+// task meant to survive a reboot requires RECEIVE_BOOT_COMPLETED in
+// AndroidManifest; app.json's permissions list didn't have it. That's a
+// genuine Android API contract violation, thrown by the system service
+// and marshaled back across the Binder/Parcel boundary — which is exactly
+// why no JS-side handler (ErrorUtils, try/catch, error boundaries) could
+// ever have caught it, and why disabling the explicit start/stop calls in
+// BUILD-DIAG-6 didn't stop it either.
+const BUILD_MARKER = 'BUILD-8-RECEIVE-BOOT-COMPLETED-FIX';
 
 // Ported from index.html's dLoginScreen block. Driver status (pending vs
 // suspended) is only known after the email->status lookup, matching the
