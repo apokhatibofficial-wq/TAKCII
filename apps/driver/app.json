@@ -21,7 +21,8 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -38,7 +39,8 @@
       "./plugins/withReleaseSigning.js",
       "@sentry/react-native",
       "expo-font",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-notifications"
     ]
   }
 }

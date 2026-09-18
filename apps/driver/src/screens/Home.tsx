@@ -7,6 +7,7 @@ import { isBackgroundLocationRunning, requestLocationPermissions, startBackgroun
 import { useDriverRide } from '../hooks/useDriverRide';
 import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
+import { usePushToken } from '../hooks/usePushToken';
 import { COLORS, FONT } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
 
@@ -33,6 +34,12 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const { pricing, settings } = useFare();
   const stats = useDriverStats(driver.id);
   const ride = useDriverRide(driver.id);
+  usePushToken(driver.id);
+
+  useEffect(() => {
+    if (ride.cancelledNotice === 0) return;
+    Alert.alert('تم إلغاء الرحلة', 'ألغى الراكب هذه الرحلة.');
+  }, [ride.cancelledNotice]);
 
   // Loud, looping ringtone while a request is waiting on this driver — ported
   // from index.html's playTone() (same 660/880/660/990Hz triangle-wave chime,

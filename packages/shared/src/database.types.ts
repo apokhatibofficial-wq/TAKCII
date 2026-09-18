@@ -287,6 +287,39 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          expo_token: string | null
+          id: string
+          platform: string
+          user_id: string
+          web_auth: string | null
+          web_endpoint: string | null
+          web_p256dh: string | null
+        }
+        Insert: {
+          created_at?: string
+          expo_token?: string | null
+          id?: string
+          platform: string
+          user_id: string
+          web_auth?: string | null
+          web_endpoint?: string | null
+          web_p256dh?: string | null
+        }
+        Update: {
+          created_at?: string
+          expo_token?: string | null
+          id?: string
+          platform?: string
+          user_id?: string
+          web_auth?: string | null
+          web_endpoint?: string | null
+          web_p256dh?: string | null
+        }
+        Relationships: []
+      }
       ratings: {
         Row: {
           created_at: string

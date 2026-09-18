@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import MapView, { type MapMarker } from '../components/MapView';
 import RidePanel from '../components/RidePanel';
 import AdOverlay from '../components/AdOverlay';
+import ToastHost, { showToast } from '../components/Toast';
 import { usePlacesSearch, type SearchPlace } from '../hooks/usePlacesSearch';
 import { useFare } from '../hooks/useFare';
 import { useRide } from '../hooks/useRide';
 import { useActiveAd } from '../hooks/useActiveAd';
 import { useDriverLocation } from '../hooks/useDriverLocation';
-import { distanceOrEstimate, reverseGeocode, type RouteResult } from '@takc/shared';
+import { distanceOrEstimate, reverseGeocode, type RideStatus, type RouteResult } from '@takc/shared';
+
+const STATUS_TOASTS: Partial<Record<RideStatus, string>> = {
+  dispatched: 'تم العثور على سائق، بانتظار تأكيده…',
+  arrived: 'وصل السائق إلى نقطة الانطلاق'
+};
 
 interface Pickup {
   lat: number;
@@ -44,6 +50,21 @@ export default function Home() {
   // id any earlier would just query rows RLS denies.
   const driverVisibleForLocation = ride?.driverId != null && ['toPickup', 'arrived', 'onTrip'].includes(ride.status);
   const driverLocation = useDriverLocation(driverVisibleForLocation ? (ride!.driverId as string) : null);
+
+  // RidePanel already shows a persistent status line — this adds a transient
+  // pop for the two moments most worth surfacing even if the rider isn't
+  // looking at the sheet right now. Keyed off a ref (not just ride?.status
+  // in the deps) so it fires once per actual transition, not on every
+  // re-render that happens to carry the same status.
+  const prevStatusRef = useRef<RideStatus | null>(null);
+  useEffect(() => {
+    const cur = ride?.status ?? null;
+    if (cur && cur !== prevStatusRef.current) {
+      const text = STATUS_TOASTS[cur];
+      if (text) showToast(text);
+    }
+    prevStatusRef.current = cur;
+  }, [ride?.status]);
 
   // Points picked on the map aren't in the places list, so they have no
   // entry in usePlacesSearch's route cache — measured separately below.
@@ -151,6 +172,7 @@ export default function Home() {
 
   return (
     <>
+      <ToastHost />
       {ad && !adDismissed && <AdOverlay ad={ad} onClose={() => setAdDismissed(true)} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, cursor: pickingOnMap ? 'crosshair' : undefined }}>

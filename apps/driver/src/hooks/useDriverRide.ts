@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { rowToCamel, type Ride, type RideStatus } from '@takc/shared';
+import { notifyRideChange, rowToCamel, type Ride, type RideStatus } from '@takc/shared';
 
 const ADVANCE: Partial<Record<RideStatus, RideStatus>> = { toPickup: 'arrived', arrived: 'onTrip', onTrip: 'done' };
 const ACTIVE_TRIP_STATUSES: RideStatus[] = ['toPickup', 'arrived', 'onTrip'];
@@ -16,6 +16,7 @@ export function useDriverRide(driverId: string | null) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [muted, setMuted] = useState(false);
   const [trip, setTrip] = useState<Ride | null>(null);
+  const [cancelledNotice, setCancelledNotice] = useState(0);
 
   const [waitRunning, setWaitRunning] = useState(false);
   const [waitSeconds, setWaitSeconds] = useState(0);
@@ -41,6 +42,7 @@ export function useDriverRide(driverId: string | null) {
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     setIncoming(null);
     await supabase.rpc('reject_ride', { p_ride_id: rideId });
+    notifyRideChange(supabase, rideId);
   }, []);
 
   useEffect(() => {
@@ -76,7 +78,24 @@ export function useDriverRide(driverId: string | null) {
         setTrip(row);
         return;
       }
-      // done / cancelled / searching (lost the race to another driver)
+      if (row.status === 'cancelled') {
+        // Only the rider can cancel (cancel_ride RPC), and only while this
+        // driver was still looking at it (offer or accepted trip) — a ride
+        // that already moved on to another driver (searching/reassigned)
+        // falls through to the generic clear below, silently, on purpose.
+        setIncoming((cur) => {
+          if (cur?.id !== row.id) return cur;
+          setCancelledNotice((n) => n + 1);
+          return null;
+        });
+        setTrip((cur) => {
+          if (cur?.id !== row.id) return cur;
+          setCancelledNotice((n) => n + 1);
+          return null;
+        });
+        return;
+      }
+      // done / searching (lost the race to another driver)
       setIncoming((cur) => (cur?.id === row.id ? null : cur));
       setTrip((cur) => (cur?.id === row.id ? null : cur));
     };
@@ -124,6 +143,7 @@ export function useDriverRide(driverId: string | null) {
     setIncoming(null);
     resetWait();
     setTrip(rowToCamel<Ride>(data));
+    notifyRideChange(supabase, rideId);
   }, [incoming, resetWait]);
 
   const rejectIncoming = useCallback(() => {
@@ -166,6 +186,7 @@ export function useDriverRide(driverId: string | null) {
       p_wait_runs: finalRuns
     });
     if (error || !data) return;
+    notifyRideChange(supabase, trip.id);
     if (isDone) {
       setTrip(null);
       resetWait();
@@ -186,6 +207,7 @@ export function useDriverRide(driverId: string | null) {
   return {
     incoming,
     countdown,
+    cancelledNotice,
     muted,
     toggleMute: () => setMuted((m) => !m),
     accept,

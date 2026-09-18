@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { rowToCamel, type CurrencyCode, type Ride } from '@takc/shared';
+import { notifyRideChange, rowToCamel, type CurrencyCode, type Ride } from '@takc/shared';
 
 interface RequestParams {
   pickupName: string;
@@ -47,6 +47,7 @@ export function useRide() {
       const r = rowToCamel<Ride>(data);
       setRide(r);
       subscribeToRide(r.id);
+      notifyRideChange(supabase, r.id);
       return r;
     },
     [subscribeToRide]
@@ -55,6 +56,7 @@ export function useRide() {
   const cancelRide = useCallback(async () => {
     if (!ride) return;
     await supabase.rpc('cancel_ride', { p_ride_id: ride.id });
+    notifyRideChange(supabase, ride.id);
     channelRef.current?.unsubscribe();
     channelRef.current = null;
     setRide(null);

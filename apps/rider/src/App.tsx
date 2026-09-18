@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
+import { usePushSubscription } from './hooks/usePushSubscription';
 import Splash from './screens/Splash';
 import Login from './screens/Login';
 import Signup, { type SignupPayload } from './screens/Signup';
@@ -40,6 +41,8 @@ export default function App() {
   }, []);
 
   const showSplash = !timerDone || !sessionChecked;
+
+  usePushSubscription(screen === 'home');
 
   return (
     <div className="app-shell" dir="rtl">

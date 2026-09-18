@@ -54,3 +54,32 @@ self.addEventListener('fetch', (e) => {
     }
   })());
 });
+
+self.addEventListener('push', (e) => {
+  let data = {};
+  try {
+    data = e.data ? e.data.json() : {};
+  } catch {
+    data = {};
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'TAK-C.TAXI', {
+      body: data.body || '',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      dir: 'rtl',
+      data: { rideId: data.rideId }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((cs) => {
+      const existing = cs[0];
+      if (existing) return existing.focus();
+      return self.clients.openWindow('./');
+    })
+  );
+});

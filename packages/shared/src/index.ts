@@ -4,4 +4,5 @@ export * from './osm';
 export * from './tokens';
 export * from './supabase';
 export * from './caseMap';
+export * from './notifications';
 export type { Database } from './database.types';
