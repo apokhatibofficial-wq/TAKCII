@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { CITY_CENTER } from '@takc/shared';
+import taxiMarkerUrl from '../assets/taxi-marker.png';
 
 export interface MapMarker {
   id: string;
@@ -19,13 +20,12 @@ interface MapViewProps {
 // Ported from index.html's icon()/syncMap()/drawMarkers()/drawRoute() — same
 // marker styling, same imperative-update pattern (Leaflet owns its DOM node;
 // React only diffs the marker/route data going in).
-function iconFor(kind: MapMarker['kind']): L.DivIcon {
+function iconFor(kind: MapMarker['kind']): L.Icon | L.DivIcon {
   if (kind === 'driver') {
-    return L.divIcon({
-      className: '',
-      iconSize: [30, 30],
-      html: '<div style="width:30px;height:30px;border-radius:10px;background:#fde403;border:2px solid #181619;display:grid;place-items:center;font:800 12px/1.35 Tajawal,sans-serif;color:#181619;box-shadow:0 4px 10px rgba(0,0,0,.3)">T</div>'
-    });
+    // Top-down car artwork supplied as-is (unmodified) — iconSize is the
+    // asset's own 1x display size; the file itself is exported @2x for a
+    // crisp marker on high-DPI phone screens.
+    return L.icon({ iconUrl: taxiMarkerUrl, iconSize: [34, 76], iconAnchor: [17, 38] });
   }
   if (kind === 'me') {
     return L.divIcon({
