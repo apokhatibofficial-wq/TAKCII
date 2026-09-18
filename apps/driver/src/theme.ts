@@ -10,10 +10,15 @@ export const COLORS = {
   textMuted: '#575757'
 };
 
-// Custom font loading (FreePalestine/Tajawal) is deferred — system fonts with
-// bold weights approximate the brand feel for this build; see النشر.md.
+// Tajawal, loaded via @expo-google-fonts/tajawal (App.tsx's useFonts call).
+// Each weight is its own font file/family name, not a single variable font —
+// pair a family here with fontWeight: 'normal' in styles (never a numeric
+// fontWeight alongside it) so Android doesn't go looking for a synthetic
+// bold variant of an already-bold file.
 export const FONT = {
-  display: undefined,
-  button: undefined,
-  body: undefined
+  regular: 'Tajawal_400Regular',
+  medium: 'Tajawal_500Medium',
+  bold: 'Tajawal_700Bold',
+  extraBold: 'Tajawal_800ExtraBold',
+  heavy: 'Tajawal_900Black'
 };

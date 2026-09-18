@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Sentry from '@sentry/react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts, Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black } from '@expo-google-fonts/tajawal';
 import { supabase } from './src/lib/supabase';
 import { useDriverProfile } from './src/hooks/useDriverProfile';
 import Login from './src/screens/Login';
@@ -14,7 +16,19 @@ import { readAndClearLastCrash, readAndClearLastBreadcrumb } from './src/lib/cra
 
 type AuthScreen = 'login' | 'signup';
 
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
 function App() {
+  const [fontsLoaded] = useFonts({ Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontsLoaded]);
+
+  // Keeps the native splash on screen rather than flashing default-font text
+  // for a frame — every screen in this app renders Arabic through Tajawal.
+  if (!fontsLoaded) return null;
+
   return (
     <ErrorBoundary>
       <AppInner />
