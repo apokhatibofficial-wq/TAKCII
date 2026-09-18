@@ -12,7 +12,8 @@ import { distanceOrEstimate, reverseGeocode, type RideStatus, type RouteResult }
 
 const STATUS_TOASTS: Partial<Record<RideStatus, string>> = {
   dispatched: 'تم العثور على سائق، بانتظار تأكيده…',
-  arrived: 'وصل السائق إلى نقطة الانطلاق'
+  arrived: 'وصل السائق إلى نقطة الانطلاق',
+  onTrip: 'بدأت الرحلة الآن'
 };
 
 interface Pickup {

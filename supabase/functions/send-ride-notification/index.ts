@@ -40,6 +40,9 @@ function notificationFor(ride: Record<string, unknown>): RideNotification | null
   if (status === 'arrived' && ride.rider_id) {
     return { targetUserId: ride.rider_id as string, title: 'السائق بانتظارك', body: 'وصل السائق إلى نقطة الانطلاق' };
   }
+  if (status === 'onTrip' && ride.rider_id) {
+    return { targetUserId: ride.rider_id as string, title: 'بدأت الرحلة', body: 'أنت في الطريق إلى وجهتك الآن' };
+  }
   if (status === 'cancelled' && ride.driver_id) {
     return { targetUserId: ride.driver_id as string, title: 'تم إلغاء الرحلة', body: 'ألغى الراكب هذه الرحلة' };
   }
