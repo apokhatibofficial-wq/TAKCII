@@ -324,29 +324,32 @@ export type Database = {
         Row: {
           created_at: string
           driver_id: string
+          driver_stars: number | null
           edited_by_admin: boolean
           id: string
           ride_id: string
           rider_id: string
-          stars: number
+          rider_stars: number | null
         }
         Insert: {
           created_at?: string
           driver_id: string
+          driver_stars?: number | null
           edited_by_admin?: boolean
           id?: string
           ride_id: string
           rider_id: string
-          stars: number
+          rider_stars?: number | null
         }
         Update: {
           created_at?: string
           driver_id?: string
+          driver_stars?: number | null
           edited_by_admin?: boolean
           id?: string
           ride_id?: string
           rider_id?: string
-          stars?: number
+          rider_stars?: number | null
         }
         Relationships: [
           {
@@ -632,6 +635,25 @@ export type Database = {
       nearest_available_driver: {
         Args: { p_exclude?: string[]; p_lat: number; p_lng: number }
         Returns: string
+      }
+      rate_ride: {
+        Args: { p_ride_id: string; p_stars: number }
+        Returns: {
+          created_at: string
+          driver_id: string
+          driver_stars: number | null
+          edited_by_admin: boolean
+          id: string
+          ride_id: string
+          rider_id: string
+          rider_stars: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ratings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reject_ride: {
         Args: { p_ride_id: string }

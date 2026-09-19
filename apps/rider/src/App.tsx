@@ -6,8 +6,9 @@ import Login from './screens/Login';
 import Signup, { type SignupPayload } from './screens/Signup';
 import OtpVerify from './screens/OtpVerify';
 import Home from './screens/Home';
+import Profile from './screens/Profile';
 
-type Screen = 'login' | 'signup' | 'otp' | 'home';
+type Screen = 'login' | 'signup' | 'otp' | 'home' | 'profile';
 
 export default function App() {
   const [timerDone, setTimerDone] = useState(false);
@@ -42,7 +43,7 @@ export default function App() {
 
   const showSplash = !timerDone || !sessionChecked;
 
-  usePushSubscription(screen === 'home');
+  usePushSubscription(screen === 'home' || screen === 'profile');
 
   return (
     <div className="app-shell" dir="rtl">
@@ -64,7 +65,9 @@ export default function App() {
         <OtpVerify payload={pendingSignup} onBack={() => setScreen('signup')} onVerified={() => setScreen('home')} />
       )}
 
-      {screen === 'home' && <Home />}
+      {screen === 'home' && <Home onOpenProfile={() => setScreen('profile')} />}
+
+      {screen === 'profile' && <Profile onBack={() => setScreen('home')} />}
     </div>
   );
 }

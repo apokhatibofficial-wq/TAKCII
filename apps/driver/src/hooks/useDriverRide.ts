@@ -17,6 +17,7 @@ export function useDriverRide(driverId: string | null) {
   const [muted, setMuted] = useState(false);
   const [trip, setTrip] = useState<Ride | null>(null);
   const [cancelledNotice, setCancelledNotice] = useState(0);
+  const [justCompleted, setJustCompleted] = useState<{ rideId: string; riderId: string } | null>(null);
 
   const [waitRunning, setWaitRunning] = useState(false);
   const [waitSeconds, setWaitSeconds] = useState(0);
@@ -188,12 +189,15 @@ export function useDriverRide(driverId: string | null) {
     if (error || !data) return;
     notifyRideChange(supabase, trip.id);
     if (isDone) {
+      setJustCompleted({ rideId: trip.id, riderId: trip.riderId });
       setTrip(null);
       resetWait();
     } else {
       setTrip(rowToCamel<Ride>(data));
     }
   }, [trip, waitTotal, waitRunning, waitSeconds, waitRuns, resetWait]);
+
+  const clearJustCompleted = useCallback(() => setJustCompleted(null), []);
 
   useEffect(
     () => () => {
@@ -208,6 +212,8 @@ export function useDriverRide(driverId: string | null) {
     incoming,
     countdown,
     cancelledNotice,
+    justCompleted,
+    clearJustCompleted,
     muted,
     toggleMute: () => setMuted((m) => !m),
     accept,

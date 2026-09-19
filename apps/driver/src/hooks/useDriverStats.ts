@@ -27,10 +27,10 @@ export function useDriverStats(driverId: string | null) {
           .eq('driver_id', driverId)
           .eq('status', 'done')
           .gte('completed_at', startOfDay.toISOString()),
-        supabase.from('ratings').select('stars').eq('driver_id', driverId)
+        supabase.from('ratings').select('driver_stars').eq('driver_id', driverId).not('driver_stars', 'is', null)
       ]);
       if (cancelled) return;
-      const avg = ratings && ratings.length ? (ratings.reduce((s, r) => s + r.stars, 0) / ratings.length).toFixed(1) : '—';
+      const avg = ratings && ratings.length ? (ratings.reduce((s, r) => s + (r.driver_stars ?? 0), 0) / ratings.length).toFixed(1) : '—';
       setStats({ tripsToday: count ?? 0, avgRating: avg });
     })();
     return () => {

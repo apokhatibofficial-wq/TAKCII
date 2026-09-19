@@ -50,6 +50,12 @@
       "expo-splash-screen",
       "expo-notifications",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "يحتاج TAK-C.TAXI الوصول إلى صورك لتتمكن من اختيار صورة شخصية لحسابك."
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

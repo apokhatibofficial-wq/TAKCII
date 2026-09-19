@@ -29,7 +29,7 @@ const DEFAULT_PICKUP: Pickup = { lat: 36.2112, lng: 36.759, name: 'ساحة ال
 // Ported from index.html's uHome block: map + top bar + bottom sheet. The
 // sheet shows the search/pricing UI (stIdle) when there's no active ride, and
 // hands off to RidePanel (stSearching/stMatched/stDone) once one exists.
-export default function Home() {
+export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
   const [pickup, setPickup] = useState<Pickup>(DEFAULT_PICKUP);
   const [locating, setLocating] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -197,6 +197,9 @@ export default function Home() {
       )}
 
       <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: 8, padding: 12 }}>
+        <button onClick={onOpenProfile} style={roundBtnStyle}>
+          ⚙
+        </button>
         <div
           style={{
             flex: 1,

@@ -4,7 +4,7 @@ import { Card, Chip, Toast, useToast } from '../components/ui';
 
 interface RatingRow {
   id: string;
-  stars: number;
+  stars: number | null;
   createdAt: string;
   driverId: string;
   driverName: string;
@@ -18,13 +18,13 @@ export default function Ratings() {
   const { toastText, toast } = useToast();
 
   const load = async () => {
-    const { data } = await supabase.from('ratings').select('id,stars,created_at,driver_id,drivers(name)').order('created_at', { ascending: false });
+    const { data } = await supabase.from('ratings').select('id,driver_stars,created_at,driver_id,drivers(name)').order('created_at', { ascending: false });
     if (data) {
       setRows(
         data.map((r) => {
           const driverRel = r.drivers as unknown as { name: string } | { name: string }[] | null;
           const driverName = Array.isArray(driverRel) ? driverRel[0]?.name : driverRel?.name;
-          return { id: r.id, stars: r.stars, createdAt: r.created_at, driverId: r.driver_id, driverName: driverName ?? '—' };
+          return { id: r.id, stars: r.driver_stars, createdAt: r.created_at, driverId: r.driver_id, driverName: driverName ?? '—' };
         })
       );
     }
@@ -35,14 +35,15 @@ export default function Ratings() {
     load();
   }, []);
 
+  const rated = useMemo(() => rows.filter((r): r is RatingRow & { stars: number } => r.stars != null), [rows]);
   const filtered = useMemo(
-    () => rows.filter((r) => (!starFilter || r.stars === starFilter) && (driverFilter === 'all' || r.driverId === driverFilter)),
-    [rows, starFilter, driverFilter]
+    () => rated.filter((r) => (!starFilter || r.stars === starFilter) && (driverFilter === 'all' || r.driverId === driverFilter)),
+    [rated, starFilter, driverFilter]
   );
-  const avg = rows.length ? (rows.reduce((s, r) => s + r.stars, 0) / rows.length).toFixed(1) : '—';
+  const avg = rated.length ? (rated.reduce((s, r) => s + (r.stars ?? 0), 0) / rated.length).toFixed(1) : '—';
 
   const setStars = async (id: string, stars: number) => {
-    await supabase.from('ratings').update({ stars, edited_by_admin: true }).eq('id', id);
+    await supabase.from('ratings').update({ driver_stars: stars, edited_by_admin: true }).eq('id', id);
     toast('تم حفظ التقييم');
     load();
   };

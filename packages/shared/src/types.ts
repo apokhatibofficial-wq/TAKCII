@@ -83,7 +83,8 @@ export interface Rating {
   rideId: string;
   driverId: string;
   riderId: string;
-  stars: 1 | 2 | 3 | 4 | 5;
+  driverStars: 1 | 2 | 3 | 4 | 5 | null;
+  riderStars: 1 | 2 | 3 | 4 | 5 | null;
   editedByAdmin: boolean;
   createdAt: string;
 }

@@ -8,6 +8,8 @@ import { useDriverRide } from '../hooks/useDriverRide';
 import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
 import { usePushToken } from '../hooks/usePushToken';
+import Profile from './Profile';
+import RateRiderOverlay from '../components/RateRiderOverlay';
 import { COLORS, FONT } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
 
@@ -31,6 +33,7 @@ function fmtClock(totalSeconds: number): string {
 export default function Home({ driver, setDriver, onLogout }: { driver: Driver; setDriver: (d: Driver) => void; onLogout: () => void }) {
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [riderName, setRiderName] = useState('');
+  const [showProfile, setShowProfile] = useState(false);
   const { pricing, settings } = useFare();
   const stats = useDriverStats(driver.id);
   const ride = useDriverRide(driver.id);
@@ -166,6 +169,10 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const reqHasFare = !!(incoming && incoming.fareAmount != null) && settings?.showToRiders !== false;
   const reqTripMeta = incoming && incoming.km != null && incoming.minutes != null ? `${incoming.km.toFixed(1)} كم · ${Math.max(1, Math.round(incoming.minutes))} دقيقة` : '';
 
+  if (showProfile) {
+    return <Profile driver={driver} setDriver={setDriver} onBack={() => setShowProfile(false)} />;
+  }
+
   return (
     <View style={styles.root}>
       <LinearGradient colors={[COLORS.cream, '#e9e4d4']} style={styles.mapBg}>
@@ -173,15 +180,19 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
       </LinearGradient>
 
       <View style={styles.topBar}>
-        <View style={styles.profileCard}>
+        <Pressable onPress={() => setShowProfile(true)} style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{driver.name.slice(0, 1)}</Text>
+            {driver.selfieUrl ? (
+              <Image source={{ uri: driver.selfieUrl }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarText}>{driver.name.slice(0, 1)}</Text>
+            )}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.profileName} numberOfLines={1}>{driver.name}</Text>
             <Text style={styles.profileSub} numberOfLines={1}>{driver.plate} · {driver.car}</Text>
           </View>
-        </View>
+        </Pressable>
         <Pressable onPress={handleLogout} style={styles.iconBtn}>
           <Text style={styles.iconBtnText}>خروج</Text>
         </Pressable>
@@ -315,6 +326,10 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
           </View>
         </ScrollView>
       )}
+
+      {ride.justCompleted && (
+        <RateRiderOverlay rideId={ride.justCompleted.rideId} riderId={ride.justCompleted.riderId} onDone={ride.clearJustCompleted} />
+      )}
     </View>
   );
 }
@@ -339,7 +354,8 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 }
   },
-  avatar: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.cream, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.cream, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg: { width: '100%', height: '100%' },
   avatarText: { fontSize: 13, fontFamily: FONT.extraBold, color: COLORS.black },
   profileName: { fontSize: 13, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right' },
   profileSub: { fontSize: 11, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'right', marginTop: 2 },

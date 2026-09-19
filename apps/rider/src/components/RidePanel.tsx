@@ -123,7 +123,7 @@ function DoneView({
 
   const submitRating = async () => {
     if (!stars || !ride.driverId) return;
-    const { error } = await supabase.from('ratings').insert({ ride_id: ride.id, driver_id: ride.driverId, rider_id: ride.riderId, stars });
+    const { error } = await supabase.rpc('rate_ride', { p_ride_id: ride.id, p_stars: stars });
     if (!error) setSent(true);
   };
 
