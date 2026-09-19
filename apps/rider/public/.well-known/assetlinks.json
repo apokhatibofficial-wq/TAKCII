@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "taxi.takc.rider",
+      "sha256_cert_fingerprints": [
+        "52:CF:F4:71:F0:29:03:20:8C:C9:F0:51:B0:20:45:4D:08:2C:C5:4D:85:A8:9C:42:48:82:72:D8:6F:27:6A:19"
+      ]
+    }
+  }
+]
