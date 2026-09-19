@@ -10,3 +10,4 @@ dist-ssr/
 .vite/
 supabase/.temp/
 apps/rider/public/driver-app.apk
+apps/rider/public/rider-app.apk
