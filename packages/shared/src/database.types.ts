@@ -88,7 +88,9 @@ export type Database = {
           height: number
           id: string
           image_fit: string
-          image_url: string | null
+          image_urls: string[]
+          impressions_count: number
+          link_clicks_count: number
           title: string
         }
         Insert: {
@@ -101,7 +103,9 @@ export type Database = {
           height?: number
           id?: string
           image_fit?: string
-          image_url?: string | null
+          image_urls?: string[]
+          impressions_count?: number
+          link_clicks_count?: number
           title: string
         }
         Update: {
@@ -114,7 +118,9 @@ export type Database = {
           height?: number
           id?: string
           image_fit?: string
-          image_url?: string | null
+          image_urls?: string[]
+          impressions_count?: number
+          link_clicks_count?: number
           title?: string
         }
         Relationships: []
@@ -740,6 +746,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      track_ad_impression: { Args: { p_ad_id: string }; Returns: undefined }
+      track_ad_link_click: { Args: { p_ad_id: string }; Returns: undefined }
     }
     Enums: {
       ad_audience: "all" | "users" | "drivers"

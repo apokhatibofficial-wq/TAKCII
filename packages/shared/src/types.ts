@@ -103,13 +103,15 @@ export interface Ad {
   id: string;
   title: string;
   body: string | null;
-  imageUrl: string | null;
+  imageUrls: string[];
   audience: AdAudience;
   buttonLabel: string | null;
   buttonUrl: string | null;
   imageFit: 'cover' | 'contain';
   height: number;
   active: boolean;
+  impressionsCount: number;
+  linkClicksCount: number;
   createdAt: string;
 }
 

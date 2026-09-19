@@ -4,11 +4,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { supabase } from '../lib/supabase';
 import { isBackgroundLocationRunning, requestLocationPermissions, startBackgroundLocation, stopBackgroundLocation } from '../location/backgroundTask';
+import { useActiveAd } from '../hooks/useActiveAd';
 import { useDriverRide } from '../hooks/useDriverRide';
 import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
 import { usePushToken } from '../hooks/usePushToken';
 import Profile from './Profile';
+import AdOverlay from '../components/AdOverlay';
 import RateRiderOverlay from '../components/RateRiderOverlay';
 import { COLORS, FONT } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
@@ -34,9 +36,11 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [riderName, setRiderName] = useState('');
   const [showProfile, setShowProfile] = useState(false);
+  const [adDismissed, setAdDismissed] = useState(false);
   const { pricing, settings } = useFare();
   const stats = useDriverStats(driver.id);
   const ride = useDriverRide(driver.id);
+  const ad = useActiveAd();
   usePushToken(driver.id);
 
   useEffect(() => {
@@ -330,6 +334,8 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
       {ride.justCompleted && (
         <RateRiderOverlay rideId={ride.justCompleted.rideId} riderId={ride.justCompleted.riderId} onDone={ride.clearJustCompleted} />
       )}
+
+      {ad && !adDismissed && <AdOverlay ad={ad} onClose={() => setAdDismissed(true)} />}
     </View>
   );
 }
