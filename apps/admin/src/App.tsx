@@ -7,6 +7,7 @@ import Layout, { type TabId } from './layout/Layout';
 import Users from './tabs/Users';
 import Drivers from './tabs/Drivers';
 import Available from './tabs/Available';
+import Sales from './tabs/Sales';
 import Ratings from './tabs/Ratings';
 import Places from './tabs/Places';
 import Pricing from './tabs/Pricing';
@@ -18,6 +19,7 @@ const TAB_VIEWS: Record<TabId, React.ComponentType> = {
   users: Users,
   drivers: Drivers,
   available: Available,
+  sales: Sales,
   ratings: Ratings,
   places: Places,
   pricing: Pricing,

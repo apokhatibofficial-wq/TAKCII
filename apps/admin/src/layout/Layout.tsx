@@ -2,12 +2,13 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useLang } from '../i18n/LangContext';
 import { supabase } from '../lib/supabase';
 
-export type TabId = 'users' | 'drivers' | 'available' | 'ratings' | 'places' | 'pricing' | 'messages' | 'ads' | 'settings';
+export type TabId = 'users' | 'drivers' | 'available' | 'sales' | 'ratings' | 'places' | 'pricing' | 'messages' | 'ads' | 'settings';
 
 const TABS: { id: TabId; labelKey: keyof ReturnType<typeof useLang>['t']; titleKey: keyof ReturnType<typeof useLang>['t'] }[] = [
   { id: 'users', labelKey: 'navUsers', titleKey: 'ttlUsers' },
   { id: 'drivers', labelKey: 'navDrivers', titleKey: 'ttlDrivers' },
   { id: 'available', labelKey: 'navAvailable', titleKey: 'ttlAvailable' },
+  { id: 'sales', labelKey: 'navSales', titleKey: 'ttlSales' },
   { id: 'ratings', labelKey: 'navRatings', titleKey: 'ttlRatings' },
   { id: 'places', labelKey: 'navPlaces', titleKey: 'ttlPlaces' },
   { id: 'pricing', labelKey: 'navPricing', titleKey: 'ttlPricing' },
