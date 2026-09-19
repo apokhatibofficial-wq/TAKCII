@@ -116,7 +116,16 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         }
         return;
       }
-      await startBackgroundLocation();
+      try {
+        await startBackgroundLocation();
+      } catch (e) {
+        console.error('[reconcile background location]', e);
+        await supabase.from('drivers').update({ online: false }).eq('id', driver.id);
+        if (!cancelled) {
+          setDriver({ ...driver, online: false });
+          Alert.alert('تعذّر تفعيل تتبع الموقع', 'تم فصلك تلقائياً — أعد تفعيل الاتصال من الشاشة الرئيسية.');
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -141,6 +150,8 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         await supabase.from('drivers').update({ online: true }).eq('id', driver.id);
         setDriver({ ...driver, online: true });
       }
+    } catch (e) {
+      Alert.alert('تعذّر تغيير الحالة', e instanceof Error ? e.message : 'حدث خطأ غير متوقع، حاول مرة أخرى.');
     } finally {
       setOnlineBusy(false);
     }
