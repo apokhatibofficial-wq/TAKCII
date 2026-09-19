@@ -80,7 +80,7 @@ function AppInner() {
         ) : (
           <Signup onLogin={() => setAuthScreen('login')} onSubmitted={() => setAuthScreen('login')} />
         )}
-        <StatusBar style="dark" />
+        <StatusBar style={authScreen === 'login' ? 'light' : 'dark'} />
       </>
     );
   }
