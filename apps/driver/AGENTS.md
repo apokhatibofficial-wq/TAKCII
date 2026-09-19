@@ -26,3 +26,15 @@ crash capture itself doesn't depend on it, only nicely symbolicated stack
 traces in the Sentry dashboard do. Once a real auth token + org/project are
 configured in sentry.properties, drop both flags to get proper source-map
 upload.
+
+# Web export is for visual review only, not a real target
+
+`npx expo export --platform web` (needs react-native-web + react-dom,
+already installed) builds a browser bundle of this same app — deployed at
+https://takc-driver-preview.vercel.app for quick design review without
+installing an APK. Screens with no native-only dependency (Login, Signup,
+Pending, and Home/Profile's layout) render correctly. Background location,
+push notifications, and the ringtone all depend on native modules with no
+real web implementation — they either no-op or throw there. Never treat a
+passing web export as a substitute for an on-device install test; it only
+tells you the JS bundles and the UI you were looking at renders.
