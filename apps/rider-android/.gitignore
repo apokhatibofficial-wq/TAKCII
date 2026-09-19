@@ -12,4 +12,6 @@ gradle.properties
 store_icon.png
 manifest-checksum.txt
 *.apk
+*.apk.idsig
 *.aab
+/build/
