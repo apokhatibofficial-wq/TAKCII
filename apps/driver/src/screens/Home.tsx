@@ -11,6 +11,7 @@ import { useFare } from '../hooks/useFare';
 import { usePushToken } from '../hooks/usePushToken';
 import Profile from './Profile';
 import AdOverlay from '../components/AdOverlay';
+import PickupMap from '../components/PickupMap';
 import RateRiderOverlay from '../components/RateRiderOverlay';
 import { COLORS, FONT } from '../theme';
 import { fmtMoney, haversineKm, waitFareOf, type CurrencyCode, type Driver } from '@takc/shared';
@@ -240,14 +241,27 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         {ride.trip ? (
           <View>
             <Text style={styles.tripTitle}>{TRIP_TITLES[ride.trip.status] ?? ''}</Text>
-            <View style={{ marginTop: 10, gap: 9 }}>
-              <View style={styles.tripRow}>
-                <View style={styles.dotGreen} />
-                <Text style={styles.tripRowText}>{ride.trip.pickupName}</Text>
+
+            {ride.trip.status === 'toPickup' && (
+              <View style={{ marginTop: 12, marginBottom: 4 }}>
+                <PickupMap lat={ride.trip.pickupLat} lng={ride.trip.pickupLng} label={ride.trip.pickupName} />
               </View>
-              <View style={styles.tripRow}>
-                <View style={styles.dotBlack} />
-                <Text style={styles.tripRowText}>{ride.trip.destName}</Text>
+            )}
+
+            <View style={{ marginTop: 14, gap: 10 }}>
+              <View>
+                <Text style={styles.tripLabel}>موقع الراكب</Text>
+                <View style={styles.tripRow}>
+                  <View style={styles.dotGreen} />
+                  <Text style={styles.tripValue}>{ride.trip.pickupName}</Text>
+                </View>
+              </View>
+              <View>
+                <Text style={styles.tripLabel}>الوجهة</Text>
+                <View style={styles.tripRow}>
+                  <View style={styles.dotBlack} />
+                  <Text style={styles.tripValue}>{ride.trip.destName}</Text>
+                </View>
               </View>
             </View>
             <Pressable onPress={ride.advanceTrip} style={styles.advanceBtn}>
@@ -420,8 +434,9 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, fontFamily: FONT.medium, color: COLORS.textMuted, marginTop: 5, textAlign: 'center' },
   statLabelDark: { fontSize: 11, fontFamily: FONT.medium, color: COLORS.black, marginTop: 5, textAlign: 'center' },
   tripTitle: { fontSize: 17, fontFamily: FONT.extraBold, color: COLORS.black, textAlign: 'right' },
+  tripLabel: { fontSize: 10.5, fontFamily: FONT.medium, color: COLORS.textMuted, textAlign: 'right', marginBottom: 4 },
   tripRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tripRowText: { fontSize: 13, fontFamily: FONT.medium, color: COLORS.black, textAlign: 'right', flex: 1 },
+  tripValue: { fontSize: 14.5, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right', flex: 1 },
   dotGreen: { width: 9, height: 9, borderRadius: 5, backgroundColor: COLORS.green },
   dotBlack: { width: 9, height: 9, borderRadius: 2, backgroundColor: COLORS.black },
   advanceBtn: { width: '100%', marginTop: 16, paddingVertical: 15, borderRadius: 14, backgroundColor: COLORS.green, alignItems: 'center' },
