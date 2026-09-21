@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { notifyRideChange, rowToCamel, type CurrencyCode, type Ride } from '@takc/shared';
+import { notifyRideChange, rowToCamel, type Ride } from '@takc/shared';
 
 interface RequestParams {
   pickupName: string;
@@ -11,8 +11,6 @@ interface RequestParams {
   destLng: number;
   km: number;
   minutes: number;
-  fareAmount: number;
-  fareCurrency: CurrencyCode;
 }
 
 export function useRide() {
@@ -39,9 +37,7 @@ export function useRide() {
         p_dest_lat: p.destLat,
         p_dest_lng: p.destLng,
         p_km: p.km,
-        p_minutes: p.minutes,
-        p_fare_amount: p.fareAmount,
-        p_fare_currency: p.fareCurrency
+        p_minutes: p.minutes
       });
       if (error || !data) throw error ?? new Error('request_ride returned no row');
       const r = rowToCamel<Ride>(data);

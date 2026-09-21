@@ -160,9 +160,7 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
         destLat: dest.lat,
         destLng: dest.lng,
         km: destRoute.km,
-        minutes: destRoute.minutes,
-        fareAmount: fare,
-        fareCurrency: pricing.currency
+        minutes: destRoute.minutes
       });
       setDest(null);
       setManualRoute(null);

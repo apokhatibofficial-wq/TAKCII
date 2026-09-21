@@ -109,11 +109,11 @@ afterAll(async () => {
   }
 });
 
-async function requestTestRide(riderClient: SupabaseClient) {
+async function requestTestRide(riderClient: SupabaseClient, km = 3.2, minutes = 9) {
   const { data, error } = await riderClient.rpc('request_ride', {
     p_pickup_name: PICKUP.name, p_pickup_lat: PICKUP.lat, p_pickup_lng: PICKUP.lng,
     p_dest_name: DEST.name, p_dest_lat: DEST.lat, p_dest_lng: DEST.lng,
-    p_km: 3.2, p_minutes: 9, p_fare_amount: 250, p_fare_currency: 'TRY'
+    p_km: km, p_minutes: minutes
   });
   if (error) throw error;
   createdRideIds.push(data.id);
@@ -253,5 +253,34 @@ describe('security invariants (regression protection for migrations 0010 and 001
     expect(error).toBeTruthy();
     const { data: unchanged } = await admin.from('drivers').select('status').eq('id', driverA.id).single();
     expect(unchanged!.status).toBe('active');
+  });
+
+  it('request_ride computes fare_amount server-side from live pricing, ignoring any client-claimed fare (migration 0015)', async () => {
+    const { data: settings, error: settingsErr } = await admin.from('pricing_settings').select('active_currency').eq('id', true).single();
+    if (settingsErr) throw settingsErr;
+    const { data: pricing, error: pricingErr } = await admin.from('pricing').select('*').eq('currency', settings!.active_currency).single();
+    if (pricingErr) throw pricingErr;
+
+    const km = 3.2;
+    const minutes = 9;
+    const raw = pricing!.base + pricing!.per_km * km + pricing!.per_min * minutes;
+    const step = pricing!.round_to || 1;
+    const expectedFare = Math.round(Math.max(pricing!.min_fare, raw) / step) * step;
+
+    const ride = await requestTestRide(rider.client, km, minutes);
+    expect(ride.fare_currency).toBe(settings!.active_currency);
+    expect(Number(ride.fare_amount)).toBe(expectedFare);
+  });
+
+  it('request_ride rejects a claimed km smaller than the real straight-line pickup-to-destination distance', async () => {
+    // PICKUP -> DEST is ~1.05km apart in a straight line; 0.1km is not
+    // achievable by any real road route between them.
+    const { data, error } = await rider.client.rpc('request_ride', {
+      p_pickup_name: PICKUP.name, p_pickup_lat: PICKUP.lat, p_pickup_lng: PICKUP.lng,
+      p_dest_name: DEST.name, p_dest_lat: DEST.lat, p_dest_lng: DEST.lng,
+      p_km: 0.1, p_minutes: 9
+    });
+    expect(data).toBeNull();
+    expect(error).toBeTruthy();
   });
 });

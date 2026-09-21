@@ -703,8 +703,6 @@ export type Database = {
           p_dest_lat: number
           p_dest_lng: number
           p_dest_name: string
-          p_fare_amount: number
-          p_fare_currency: Database["public"]["Enums"]["currency_code"]
           p_km: number
           p_minutes: number
           p_pickup_lat: number
