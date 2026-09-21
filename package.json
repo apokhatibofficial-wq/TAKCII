@@ -13,6 +13,10 @@
     "dev:admin": "npm run dev -w apps/admin",
     "build:admin": "npm run build -w apps/admin",
     "typecheck:admin": "npm run typecheck -w apps/admin",
-    "typecheck:driver": "npm run typecheck -w apps/driver"
+    "typecheck:driver": "npm run typecheck -w apps/driver",
+    "test:critical-path": "vitest run tests/critical-path.test.ts"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.1"
   }
 }
