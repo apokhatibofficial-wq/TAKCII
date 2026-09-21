@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/react": "^10.75.1",
     "@supabase/supabase-js": "^2.45.4",
     "@takc/shared": "*",
     "react": "^18.3.1",
