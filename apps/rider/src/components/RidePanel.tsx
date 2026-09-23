@@ -101,6 +101,25 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
     return <DoneView ride={ride} driver={driver} pricingCurrency={pricing?.currency ?? null} onReset={onReset} />;
   }
 
+  // Reached only when the system itself gives up after 5 minutes with no
+  // driver (see migration 0017's sweep) -- the rider's own cancel button
+  // resets local state immediately and unsubscribes, so a live 'cancelled'
+  // update can never arrive for that path.
+  if (ride.status === 'cancelled') {
+    return (
+      <div style={{ textAlign: 'center', padding: '10px 0 4px' }}>
+        <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#b3261e', color: '#fff', display: 'grid', placeItems: 'center', margin: '0 auto 12px', fontSize: 24 }}>
+          !
+        </div>
+        <div style={{ font: "800 19px/1.3 FreePalestine,Tajawal,sans-serif" }}>لم نجد سائقاً متاحاً</div>
+        <div style={{ font: "400 12.5px/1.7 'IBM Plex Sans Arabic',sans-serif", color: '#575757', marginTop: 6 }}>
+          كل السائقين القريبين مشغولون حالياً، حاول مرة أخرى بعد قليل
+        </div>
+        <button onClick={onReset} style={newRideBtnStyle}>حسناً</button>
+      </div>
+    );
+  }
+
   return null;
 }
 

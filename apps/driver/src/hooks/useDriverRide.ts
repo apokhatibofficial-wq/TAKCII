@@ -110,7 +110,16 @@ export function useDriverRide(driverId: string | null) {
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) applyRow(rowToCamel<Ride>(data));
+        if (!data) return;
+        const row = rowToCamel<Ride>(data);
+        // The 20s offer window is now also enforced server-side (see
+        // migration 0017's sweep_stale_rides), but that runs on a schedule --
+        // skip an offer this client can already see is stale instead of
+        // flashing it as if it just arrived while waiting for the next sweep.
+        if (row.status === 'dispatched' && row.dispatchedAt && Date.now() - new Date(row.dispatchedAt).getTime() > COUNTDOWN_SECONDS * 1000) {
+          return;
+        }
+        applyRow(row);
       });
 
     channelRef.current?.unsubscribe();

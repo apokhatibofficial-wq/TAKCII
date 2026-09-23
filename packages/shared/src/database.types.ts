@@ -744,6 +744,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      sweep_stale_rides: { Args: Record<PropertyKey, never>; Returns: undefined }
       track_ad_impression: { Args: { p_ad_id: string }; Returns: undefined }
       track_ad_link_click: { Args: { p_ad_id: string }; Returns: undefined }
     }

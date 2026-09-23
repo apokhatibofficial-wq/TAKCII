@@ -284,3 +284,66 @@ describe('security invariants (regression protection for migrations 0010 and 001
     expect(error).toBeTruthy();
   });
 });
+
+describe('stale ride sweep (migration 0017)', () => {
+  it('nearest_available_driver ignores a dispatched offer past its 20s window when matching new rides', async () => {
+    const ride1 = await requestTestRide(rider.client);
+    expect(ride1.driver_id).toBe(driverA.id);
+    const staleTime = new Date(Date.now() - 25_000).toISOString();
+    const { error: backdateErr } = await admin.from('rides').update({ dispatched_at: staleTime }).eq('id', ride1.id);
+    if (backdateErr) throw backdateErr;
+
+    // Before migration 0017, driverA's stale-but-still-'dispatched' ride1
+    // would keep them "busy" forever from nearest_available_driver's point
+    // of view, so ride2 would go to driverB (or nowhere) instead.
+    const ride2 = await requestTestRide(rider.client);
+    expect(ride2.driver_id).toBe(driverA.id);
+  });
+
+  it('sweep_stale_rides reassigns an expired dispatched offer to the next-nearest driver', async () => {
+    const ride = await requestTestRide(rider.client);
+    expect(ride.driver_id).toBe(driverA.id);
+    const staleTime = new Date(Date.now() - 25_000).toISOString();
+    await admin.from('rides').update({ dispatched_at: staleTime }).eq('id', ride.id);
+
+    const { error: sweepErr } = await admin.rpc('sweep_stale_rides');
+    expect(sweepErr).toBeNull();
+
+    const { data: after } = await admin.from('rides').select('*').eq('id', ride.id).single();
+    expect(after!.status).toBe('dispatched');
+    expect(after!.driver_id).toBe(driverB.id);
+    expect(after!.declined_driver_ids).toContain(driverA.id);
+  });
+
+  it('sweep_stale_rides retries matching a searching ride once a driver becomes available', async () => {
+    try {
+      await admin.from('drivers').update({ online: false }).in('id', [driverA.id, driverB.id]);
+      const ride = await requestTestRide(rider.client);
+      expect(ride.status).toBe('searching');
+      expect(ride.driver_id).toBeNull();
+
+      await admin.from('drivers').update({ online: true }).eq('id', driverA.id);
+      const { error: sweepErr } = await admin.rpc('sweep_stale_rides');
+      expect(sweepErr).toBeNull();
+
+      const { data: after } = await admin.from('rides').select('*').eq('id', ride.id).single();
+      expect(after!.status).toBe('dispatched');
+      expect(after!.driver_id).toBe(driverA.id);
+    } finally {
+      await admin.from('drivers').update({ online: true }).in('id', [driverA.id, driverB.id]);
+    }
+  });
+
+  it('sweep_stale_rides gives up on a ride nobody has picked up after 5 minutes', async () => {
+    const ride = await requestTestRide(rider.client);
+    const longAgo = new Date(Date.now() - 6 * 60_000).toISOString();
+    await admin.from('rides').update({ requested_at: longAgo }).eq('id', ride.id);
+
+    const { error: sweepErr } = await admin.rpc('sweep_stale_rides');
+    expect(sweepErr).toBeNull();
+
+    const { data: after } = await admin.from('rides').select('*').eq('id', ride.id).single();
+    expect(after!.status).toBe('cancelled');
+    expect(after!.cancelled_at).not.toBeNull();
+  });
+});
