@@ -52,8 +52,23 @@ async function createTestUser(prefix: string): Promise<TestUser> {
 let rider: TestUser;
 let driverA: TestUser;
 let driverB: TestUser;
+let otherOnlineDriverIds: string[] = [];
 
 beforeAll(async () => {
+  // This suite runs against the live production database (no separate
+  // staging instance) -- a real driver online near the test pickup point
+  // would otherwise make "nearest driver" matching nondeterministic
+  // (observed: a real online driver near Dana got matched instead of the
+  // synthetic driverA/driverB). Take any other online+active driver
+  // temporarily offline for the run, restored exactly in afterAll.
+  const { data: others, error: othersErr } = await admin.from('drivers').select('id').eq('status', 'active').eq('online', true);
+  if (othersErr) throw othersErr;
+  otherOnlineDriverIds = (others ?? []).map((d) => d.id);
+  if (otherOnlineDriverIds.length) {
+    const { error } = await admin.from('drivers').update({ online: false }).in('id', otherOnlineDriverIds);
+    if (error) throw error;
+  }
+
   rider = await createTestUser('rider');
   driverA = await createTestUser('driverA');
   driverB = await createTestUser('driverB');
@@ -88,6 +103,11 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  if (otherOnlineDriverIds.length) {
+    const { error } = await admin.from('drivers').update({ online: true }).in('id', otherOnlineDriverIds);
+    if (error) throw new Error(`cleanup: failed to restore other drivers online: ${error.message}`);
+  }
+
   // ratings.ride_id -> rides.id has no ON DELETE CASCADE (confirmed against
   // the live schema), so a rated test ride blocks the whole batch delete
   // below unless its rating is removed first. riders/drivers rows are
