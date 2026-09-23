@@ -1,0 +1,70 @@
+name: CI/CD
+
+on:
+  workflow_dispatch:
+  # push: {branches: [claude/new-session-ey9dvj]} -- intentionally not
+  # enabled yet: this job's deploy step pushes straight to production, and
+  # turning that on automatically the moment this file merges needs an
+  # explicit decision, not a side effect of adding the workflow. Run it by
+  # hand from the Actions tab first to confirm the four repo secrets are
+  # right, then uncomment this once you're ready for every push to deploy
+  # automatically.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck:rider
+      - run: npm run typecheck:admin
+      # driver is a native Expo/React Native app; a full APK build is not
+      # attempted here (see apps/driver/AGENTS.md on native-build fragility
+      # and the need for an on-device install test, not just a build) --
+      # typecheck alone still catches real JS/TS regressions on every push.
+      - run: npm run typecheck:driver
+      - run: npm run build:rider
+      - run: npm run build:admin
+      - name: Run critical-path tests against the staging database
+        run: npx vitest run tests/critical-path.test.ts
+        env:
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/claude/new-session-ey9dvj'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_tRTLs15L1pIKrQAFdf5gCxWX
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # npm ci at the repo root so apps/rider and apps/admin can resolve
+      # @takc/shared as an npm workspace -- running it from inside either
+      # app directory only installs that subtree and breaks the resolution
+      # (see the "vite/vitest monorepo" fix in this repo's history for the
+      # exact failure mode this avoids).
+      - run: npm ci
+      - name: Deploy rider to production
+        working-directory: apps/rider
+        env:
+          VERCEL_PROJECT_ID: prj_ws7gmylbpzdgQdXhf1AxTnByyfna
+        run: |
+          npx vercel pull --yes --environment production --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy admin to production
+        working-directory: apps/admin
+        env:
+          VERCEL_PROJECT_ID: prj_X7JwAiRUiqpTnMNZgRN8mleALRx0
+        run: |
+          npx vercel pull --yes --environment production --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
