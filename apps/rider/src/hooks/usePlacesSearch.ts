@@ -19,6 +19,8 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
   const [places, setPlaces] = useState<SearchPlace[]>([]);
   const [routes, setRoutes] = useState<Record<string, RouteResult>>({});
   const inFlight = useRef(new Set<string>());
+  const fromKeyRef = useRef<string | null>(null);
+  const fromKey = from ? `${from[0]},${from[1]}` : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +46,20 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
   // choosing a common destination doesn't need typing its name at all.
   const featured = useMemo(() => places.filter((p) => p.imageUrl), [places]);
 
+  // Cached/in-flight routes are keyed by place id alone -- nothing tied them
+  // to which pickup point they were measured from. Pickup starts at a
+  // default and then usually jumps once real geolocation resolves a moment
+  // later; without this, a route fetched (and cached) for the old default
+  // just before that jump would silently go on being used forever, showing
+  // a fare for a pickup the rider is no longer at. Reset the cache whenever
+  // `from` actually changes.
+  useEffect(() => {
+    if (fromKey === fromKeyRef.current) return;
+    fromKeyRef.current = fromKey;
+    inFlight.current.clear();
+    setRoutes({});
+  }, [fromKey]);
+
   useEffect(() => {
     if (!from) return;
     // featured places are selectable straight from the quick-pick row or a
@@ -53,12 +69,16 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
     for (const p of [...results, ...featured]) {
       if (routes[p.id] || inFlight.current.has(p.id)) continue;
       inFlight.current.add(p.id);
+      const requestFromKey = fromKey;
       distanceOrEstimate(from, [p.lat, p.lng]).then((r) => {
         inFlight.current.delete(p.id);
+        // pickup moved again while this fetch was in flight -- its result
+        // is for a point the rider is no longer at, so drop it.
+        if (fromKeyRef.current !== requestFromKey) return;
         setRoutes((prev) => ({ ...prev, [p.id]: r }));
       });
     }
-  }, [results, featured, from, routes]);
+  }, [results, featured, from, routes, fromKey]);
 
   return { results, routes, featured };
 }
