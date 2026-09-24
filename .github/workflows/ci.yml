@@ -2,6 +2,26 @@ name: CI/CD
 
 on:
   workflow_dispatch:
+    inputs:
+      seed_env_vars:
+        description: 'One-time: (re)write the VITE_* Production env vars on Vercel for rider+admin from the inputs below, before pulling/building/deploying'
+        type: boolean
+        default: false
+      vite_supabase_url:
+        type: string
+        default: ''
+      vite_supabase_anon_key:
+        type: string
+        default: ''
+      vite_vapid_public_key:
+        type: string
+        default: ''
+      vite_sentry_dsn_rider:
+        type: string
+        default: ''
+      vite_sentry_dsn_admin:
+        type: string
+        default: ''
   # push: {branches: [claude/new-session-ey9dvj]} -- intentionally not
   # enabled yet: this job's deploy step pushes straight to production, and
   # turning that on automatically the moment this file merges needs an
@@ -57,9 +77,17 @@ jobs:
         env:
           VERCEL_PROJECT_ID: prj_ws7gmylbpzdgQdXhf1AxTnByyfna
         run: |
+          if [ "${{ inputs.seed_env_vars }}" = "true" ]; then
+            set_env() {
+              npx vercel env rm "$1" production --yes --token=${{ secrets.VERCEL_TOKEN }} >/dev/null 2>&1 || true
+              printf '%s' "$2" | npx vercel env add "$1" production --token=${{ secrets.VERCEL_TOKEN }}
+            }
+            set_env VITE_SUPABASE_URL "${{ inputs.vite_supabase_url }}"
+            set_env VITE_SUPABASE_ANON_KEY "${{ inputs.vite_supabase_anon_key }}"
+            set_env VITE_VAPID_PUBLIC_KEY "${{ inputs.vite_vapid_public_key }}"
+            set_env VITE_SENTRY_DSN "${{ inputs.vite_sentry_dsn_rider }}"
+          fi
           npx vercel pull --yes --environment production --token=${{ secrets.VERCEL_TOKEN }}
-          echo "Keys present in pulled env file (names only):"
-          grep -o '^[A-Z_0-9]*=' .vercel/.env.production.local | sort
           npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
           npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy admin to production
@@ -67,6 +95,15 @@ jobs:
         env:
           VERCEL_PROJECT_ID: prj_X7JwAiRUiqpTnMNZgRN8mleALRx0
         run: |
+          if [ "${{ inputs.seed_env_vars }}" = "true" ]; then
+            set_env() {
+              npx vercel env rm "$1" production --yes --token=${{ secrets.VERCEL_TOKEN }} >/dev/null 2>&1 || true
+              printf '%s' "$2" | npx vercel env add "$1" production --token=${{ secrets.VERCEL_TOKEN }}
+            }
+            set_env VITE_SUPABASE_URL "${{ inputs.vite_supabase_url }}"
+            set_env VITE_SUPABASE_ANON_KEY "${{ inputs.vite_supabase_anon_key }}"
+            set_env VITE_SENTRY_DSN "${{ inputs.vite_sentry_dsn_admin }}"
+          fi
           npx vercel pull --yes --environment production --token=${{ secrets.VERCEL_TOKEN }}
           npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
           npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
