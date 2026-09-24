@@ -9,6 +9,7 @@ export interface MapMarker {
   lng: number;
   kind: 'me' | 'dest' | 'driver';
   title?: string;
+  imageUrl?: string | null;
 }
 
 interface MapViewProps {
@@ -17,10 +18,19 @@ interface MapViewProps {
   onMapClick?: (lat: number, lng: number) => void;
 }
 
+// A place's image_url is admin-controlled (uploaded through the admin panel's
+// own file input, stored under a crypto.randomUUID() path -- never taken
+// from a rider), but it still goes into an HTML string handed to Leaflet's
+// divIcon, so it gets the same attribute-escaping any interpolated value
+// would need regardless of how trusted the source is.
+function escapeHtmlAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // Ported from index.html's icon()/syncMap()/drawMarkers()/drawRoute() — same
 // marker styling, same imperative-update pattern (Leaflet owns its DOM node;
 // React only diffs the marker/route data going in).
-function iconFor(kind: MapMarker['kind']): L.Icon | L.DivIcon {
+function iconFor(kind: MapMarker['kind'], imageUrl?: string | null): L.Icon | L.DivIcon {
   if (kind === 'driver') {
     // Top-down car artwork supplied as-is (unmodified) — iconSize is the
     // asset's own 1x display size; the file itself is exported @2x for a
@@ -32,6 +42,14 @@ function iconFor(kind: MapMarker['kind']): L.Icon | L.DivIcon {
       className: '',
       iconSize: [22, 22],
       html: '<div style="width:22px;height:22px;border-radius:50%;background:#008637;border:3px solid #fff;box-shadow:0 0 0 6px rgba(0,134,55,.2)"></div>'
+    });
+  }
+  if (kind === 'dest' && imageUrl) {
+    return L.divIcon({
+      className: '',
+      iconSize: [42, 42],
+      iconAnchor: [21, 21],
+      html: `<div style="width:42px;height:42px;border-radius:50%;overflow:hidden;background:#fff;border:3px solid #fde403;box-shadow:0 2px 10px rgba(24,22,25,.4)"><img src="${escapeHtmlAttr(imageUrl)}" style="width:100%;height:100%;object-fit:cover;display:block" /></div>`
     });
   }
   return L.divIcon({
@@ -76,9 +94,14 @@ export default function MapView({ markers, routeGeometry, onMapClick }: MapViewP
       const existing = markersRef.current[m.id];
       if (existing) {
         existing.setLatLng([m.lat, m.lng]);
+        // 'dest' keeps the same marker id across different selected places,
+        // so its icon (which depends on that place's imageUrl) has to be
+        // refreshed here too -- otherwise picking a new destination would
+        // keep showing the previous one's photo (or lack of one).
+        existing.setIcon(iconFor(m.kind, m.imageUrl));
         return;
       }
-      const marker = L.marker([m.lat, m.lng], { icon: iconFor(m.kind) }).addTo(map);
+      const marker = L.marker([m.lat, m.lng], { icon: iconFor(m.kind, m.imageUrl) }).addTo(map);
       if (m.title) marker.bindTooltip(m.title, { direction: 'top' });
       markersRef.current[m.id] = marker;
     });

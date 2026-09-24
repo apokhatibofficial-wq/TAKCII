@@ -91,7 +91,7 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
 
   const markers = useMemo<MapMarker[]>(() => {
     const list: MapMarker[] = [{ id: 'me', lat: pickup.lat, lng: pickup.lng, kind: 'me', title: 'موقعك' }];
-    if (dest) list.push({ id: 'dest', lat: dest.lat, lng: dest.lng, kind: 'dest', title: dest.name });
+    if (dest) list.push({ id: 'dest', lat: dest.lat, lng: dest.lng, kind: 'dest', title: dest.name, imageUrl: dest.imageUrl });
     if (driverLocation) list.push({ id: 'driver', lat: driverLocation.lat, lng: driverLocation.lng, kind: 'driver', title: 'السائق' });
     return list;
   }, [pickup, dest, driverLocation]);
