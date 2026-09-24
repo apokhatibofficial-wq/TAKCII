@@ -4,6 +4,7 @@ import RidePanel from '../components/RidePanel';
 import AdOverlay from '../components/AdOverlay';
 import ToastHost, { showToast } from '../components/Toast';
 import { usePlacesSearch, type SearchPlace } from '../hooks/usePlacesSearch';
+import { useTopDrivers } from '../hooks/useTopDrivers';
 import { useFare } from '../hooks/useFare';
 import { useRide } from '../hooks/useRide';
 import { useActiveAd } from '../hooks/useActiveAd';
@@ -44,6 +45,7 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
 
   const from = useMemo<[number, number]>(() => [pickup.lat, pickup.lng], [pickup.lat, pickup.lng]);
   const { results, routes, featured } = usePlacesSearch(from, query);
+  const topDrivers = useTopDrivers();
   const { format, fareFor, pricing, settings } = useFare();
   const { ride, requestRide, cancelRide, resetRide } = useRide();
   // "riders view matched driver" only opens once the driver has accepted
@@ -269,13 +271,22 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
               />
             </div>
 
-            {!query.trim() && featured.length > 0 && (
+            {!query.trim() && topDrivers.length > 0 && (
               <div style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '14px 2px 4px' }}>
-                {featured.map((p) => (
-                  <button key={p.id} onClick={() => selectDest(p)} style={featuredItemStyle}>
-                    <img src={p.imageUrl!} alt="" style={featuredImageStyle} />
-                    <span style={featuredLabelStyle}>{p.name}</span>
-                  </button>
+                {topDrivers.map((d) => (
+                  <div key={d.id} style={featuredItemStyle}>
+                    {d.selfieUrl ? (
+                      <img src={d.selfieUrl} alt="" style={featuredImageStyle} />
+                    ) : (
+                      <span style={{ ...featuredImageStyle, display: 'grid', placeItems: 'center', background: 'var(--color-cream)', fontSize: 18 }}>
+                        {d.name.slice(0, 1)}
+                      </span>
+                    )}
+                    <span style={featuredLabelStyle}>{d.name}</span>
+                    <span style={{ font: "700 10.5px/1.2 'IBM Plex Sans Arabic',sans-serif", color: '#8b8b8b' }}>
+                      {d.avgRating.toFixed(1)} ★
+                    </span>
+                  </div>
                 ))}
               </div>
             )}

@@ -748,6 +748,10 @@ export type Database = {
         }
       }
       sweep_stale_rides: { Args: Record<PropertyKey, never>; Returns: undefined }
+      top_rated_drivers: {
+        Args: { p_limit?: number }
+        Returns: { id: string; name: string; selfie_url: string | null; avg_rating: number; ratings_count: number }[]
+      }
       track_ad_impression: { Args: { p_ad_id: string }; Returns: undefined }
       track_ad_link_click: { Args: { p_ad_id: string }; Returns: undefined }
     }
