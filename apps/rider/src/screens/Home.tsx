@@ -43,7 +43,7 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
   const ad = useActiveAd();
 
   const from = useMemo<[number, number]>(() => [pickup.lat, pickup.lng], [pickup.lat, pickup.lng]);
-  const { results, routes } = usePlacesSearch(from, query);
+  const { results, routes, featured } = usePlacesSearch(from, query);
   const { format, fareFor, pricing, settings } = useFare();
   const { ride, requestRide, cancelRide, resetRide } = useRide();
   // "riders view matched driver" only opens once the driver has accepted
@@ -263,6 +263,17 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
               />
             </div>
 
+            {!query.trim() && featured.length > 0 && (
+              <div style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '14px 2px 4px' }}>
+                {featured.map((p) => (
+                  <button key={p.id} onClick={() => selectDest(p)} style={featuredItemStyle}>
+                    <img src={p.imageUrl!} alt="" style={featuredImageStyle} />
+                    <span style={featuredLabelStyle}>{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
               {results.map((r) => {
                 const route = routes[r.id];
@@ -472,6 +483,33 @@ const resultImageStyle: CSSProperties = {
   borderRadius: 11,
   objectFit: 'cover',
   flex: 'none'
+};
+const featuredItemStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 6,
+  flex: 'none',
+  width: 64,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer'
+};
+const featuredImageStyle: CSSProperties = {
+  width: 56,
+  height: 56,
+  borderRadius: '50%',
+  objectFit: 'cover',
+  border: '2px solid var(--color-yellow)'
+};
+const featuredLabelStyle: CSSProperties = {
+  font: "600 11px/1.3 'IBM Plex Sans Arabic',sans-serif",
+  color: 'var(--color-black)',
+  textAlign: 'center',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden'
 };
 
 const requestBtnStyle: CSSProperties = {

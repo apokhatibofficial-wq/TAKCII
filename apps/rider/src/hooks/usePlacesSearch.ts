@@ -39,6 +39,11 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
     return places.filter((p) => (p.name + ' ' + p.area).includes(q)).slice(0, 8);
   }, [places, query]);
 
+  // Places an admin bothered to add an icon/photo for are the ones worth
+  // surfacing before the rider types anything -- a quick-pick row so
+  // choosing a common destination doesn't need typing its name at all.
+  const featured = useMemo(() => places.filter((p) => p.imageUrl), [places]);
+
   useEffect(() => {
     if (!from) return;
     for (const p of results) {
@@ -51,5 +56,5 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
     }
   }, [results, from, routes]);
 
-  return { results, routes };
+  return { results, routes, featured };
 }
