@@ -51,7 +51,7 @@ input:focus, textarea:focus, select:focus {
 @keyframes sp-mask { 0% { clip-path: inset(0 0 0 100%); } 100% { clip-path: inset(0 0 0 0); } }
 @keyframes takc-rise { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Permanent name label above a 'place' pin on the home map (see MapView.tsx) */
+/* Name label above a 'place' pin on the home map, shown on tap (see MapView.tsx) */
 .leaflet-tooltip.place-label-tooltip {
   background: var(--color-white);
   border: none;

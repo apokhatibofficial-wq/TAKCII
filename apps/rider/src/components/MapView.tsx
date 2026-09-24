@@ -107,18 +107,22 @@ export default function MapView({ markers, routeGeometry, onMapClick }: MapViewP
         return;
       }
       const marker = L.marker([m.lat, m.lng], { icon: iconFor(m.kind, m.imageUrl) }).addTo(map);
-      // 'place' pins are shown several at once while the rider is still
-      // choosing a destination, so (unlike 'dest') their name has to be
-      // readable without a hover/tap -- a permanent pill label above the pin.
+      // Several 'place' pins can be on screen at once while the rider is
+      // still choosing a destination -- showing every name at all times
+      // would clutter the map, so the label only opens on tap/click, same
+      // as any other marker's tooltip.
       if (m.title) {
         marker.bindTooltip(
           m.title,
           m.kind === 'place'
-            ? { direction: 'top', permanent: true, className: 'place-label-tooltip', offset: [0, -20] }
+            ? { direction: 'top', className: 'place-label-tooltip', offset: [0, -20] }
             : { direction: 'top' }
         );
       }
-      if (m.onClick) marker.on('click', m.onClick);
+      marker.on('click', () => {
+        marker.openTooltip();
+        m.onClick?.();
+      });
       markersRef.current[m.id] = marker;
     });
     Object.entries(markersRef.current).forEach(([id, marker]) => {
