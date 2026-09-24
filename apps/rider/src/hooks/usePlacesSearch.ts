@@ -46,7 +46,11 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
 
   useEffect(() => {
     if (!from) return;
-    for (const p of results) {
+    // featured places are selectable straight from the quick-pick row or a
+    // map pin, without ever passing through `results` (query is empty at
+    // that point) -- they need the same lazy route fetch or selecting one
+    // leaves the fare stuck on "calculating" forever.
+    for (const p of [...results, ...featured]) {
       if (routes[p.id] || inFlight.current.has(p.id)) continue;
       inFlight.current.add(p.id);
       distanceOrEstimate(from, [p.lat, p.lng]).then((r) => {
@@ -54,7 +58,7 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
         setRoutes((prev) => ({ ...prev, [p.id]: r }));
       });
     }
-  }, [results, from, routes]);
+  }, [results, featured, from, routes]);
 
   return { results, routes, featured };
 }
