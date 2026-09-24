@@ -58,6 +58,8 @@ jobs:
           VERCEL_PROJECT_ID: prj_ws7gmylbpzdgQdXhf1AxTnByyfna
         run: |
           npx vercel pull --yes --environment production --token=${{ secrets.VERCEL_TOKEN }}
+          echo "Keys present in pulled env file (names only):"
+          grep -o '^[A-Z_0-9]*=' .vercel/.env.production.local | sort
           npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
           npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy admin to production
