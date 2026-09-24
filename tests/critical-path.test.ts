@@ -75,22 +75,29 @@ beforeAll(async () => {
 
   const { error: riderErr } = await admin
     .from('riders')
-    .insert({ id: rider.id, name: 'راكب اختبار آلي', phone: '0900000001', email: rider.email, username: `rider-test-${Date.now()}` });
+    .insert({ id: rider.id, name: 'راكب اختبار آلي', email: rider.email, username: `rider-test-${Date.now()}` });
   if (riderErr) throw riderErr;
+  // phone lives on its own table now (0021), not on riders/drivers directly.
+  const { error: riderContactErr } = await admin.from('rider_contacts').insert({ rider_id: rider.id, phone: '0900000001' });
+  if (riderContactErr) throw riderContactErr;
 
   const { error: driverAErr } = await admin.from('drivers').insert({
-    id: driverA.id, name: 'سائق اختبار آلي أ', phone: '0900000002', email: driverA.email,
+    id: driverA.id, name: 'سائق اختبار آلي أ', email: driverA.email,
     username: `driverA-test-${Date.now()}`, plate: 'TEST-A', car: 'Test Car', status: 'active',
     online: true, lat: NEAR_POS.lat, lng: NEAR_POS.lng
   });
   if (driverAErr) throw driverAErr;
+  const { error: driverAContactErr } = await admin.from('driver_contacts').insert({ driver_id: driverA.id, phone: '0900000002' });
+  if (driverAContactErr) throw driverAContactErr;
 
   const { error: driverBErr } = await admin.from('drivers').insert({
-    id: driverB.id, name: 'سائق اختبار آلي ب', phone: '0900000003', email: driverB.email,
+    id: driverB.id, name: 'سائق اختبار آلي ب', email: driverB.email,
     username: `driverB-test-${Date.now()}`, plate: 'TEST-B', car: 'Test Car', status: 'active',
     online: true, lat: FAR_POS.lat, lng: FAR_POS.lng
   });
   if (driverBErr) throw driverBErr;
+  const { error: driverBContactErr } = await admin.from('driver_contacts').insert({ driver_id: driverB.id, phone: '0900000003' });
+  if (driverBContactErr) throw driverBContactErr;
 });
 
 // Force every ride created so far to a terminal state after each test, so a

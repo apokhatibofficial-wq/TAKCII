@@ -11,6 +11,7 @@ import { useFare } from '../hooks/useFare';
 import { usePushToken } from '../hooks/usePushToken';
 import Profile from './Profile';
 import AdOverlay from '../components/AdOverlay';
+import ChatOverlay from '../components/ChatOverlay';
 import PickupMap from '../components/PickupMap';
 import RateRiderOverlay from '../components/RateRiderOverlay';
 import { COLORS, FONT } from '../theme';
@@ -38,6 +39,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const [riderName, setRiderName] = useState('');
   const [showProfile, setShowProfile] = useState(false);
   const [adDismissed, setAdDismissed] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const { pricing, settings } = useFare();
   const stats = useDriverStats(driver.id);
   const ride = useDriverRide(driver.id);
@@ -48,6 +50,12 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
     if (ride.cancelledNotice === 0) return;
     Alert.alert('تم إلغاء الرحلة', 'ألغى الراكب هذه الرحلة.');
   }, [ride.cancelledNotice]);
+
+  // Close the chat whenever the active trip changes (finished, or a
+  // different ride entirely) -- never leave it open over a stale rideId.
+  useEffect(() => {
+    setChatOpen(false);
+  }, [ride.trip?.id]);
 
   // Loud, looping ringtone while a request is waiting on this driver — ported
   // from index.html's playTone() (same 660/880/660/990Hz triangle-wave chime,
@@ -264,9 +272,14 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
                 </View>
               </View>
             </View>
-            <Pressable onPress={ride.advanceTrip} style={styles.advanceBtn}>
-              <Text style={styles.advanceBtnText}>{TRIP_ACTION_LABELS[ride.trip.status] ?? 'إنهاء الرحلة'}</Text>
-            </Pressable>
+            <View style={styles.tripActionsRow}>
+              <Pressable onPress={() => setChatOpen(true)} style={styles.messageBtn}>
+                <Text style={styles.messageBtnText}>مراسلة الراكب</Text>
+              </Pressable>
+              <Pressable onPress={ride.advanceTrip} style={styles.advanceBtn}>
+                <Text style={styles.advanceBtnText}>{TRIP_ACTION_LABELS[ride.trip.status] ?? 'إنهاء الرحلة'}</Text>
+              </Pressable>
+            </View>
           </View>
         ) : (
           <View>
@@ -360,6 +373,8 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         <RateRiderOverlay rideId={ride.justCompleted.rideId} riderId={ride.justCompleted.riderId} onDone={ride.clearJustCompleted} />
       )}
 
+      {chatOpen && ride.trip && <ChatOverlay rideId={ride.trip.id} myId={driver.id} onClose={() => setChatOpen(false)} />}
+
       {ad && !adDismissed && <AdOverlay ad={ad} onClose={() => setAdDismissed(true)} />}
     </View>
   );
@@ -439,7 +454,10 @@ const styles = StyleSheet.create({
   tripValue: { fontSize: 14.5, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right', flex: 1 },
   dotGreen: { width: 9, height: 9, borderRadius: 5, backgroundColor: COLORS.green },
   dotBlack: { width: 9, height: 9, borderRadius: 2, backgroundColor: COLORS.black },
-  advanceBtn: { width: '100%', marginTop: 16, paddingVertical: 15, borderRadius: 14, backgroundColor: COLORS.green, alignItems: 'center' },
+  tripActionsRow: { flexDirection: 'row', gap: 9, marginTop: 16 },
+  messageBtn: { flex: 1, paddingVertical: 15, borderWidth: 1.5, borderColor: 'rgba(24,22,25,0.14)', borderRadius: 14, alignItems: 'center' },
+  messageBtnText: { color: COLORS.black, fontFamily: FONT.bold, fontSize: 13.5 },
+  advanceBtn: { flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: COLORS.green, alignItems: 'center' },
   advanceBtnText: { color: COLORS.white, fontFamily: FONT.extraBold, fontSize: 15 },
   incomingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: COLORS.black },
   incomingContent: { padding: 22, paddingTop: 24, minHeight: '100%' },

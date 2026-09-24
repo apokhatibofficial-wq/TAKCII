@@ -37,13 +37,19 @@ export default function OtpVerify({ payload, onVerified, onBack }: OtpVerifyProp
       const { error: insertError } = await supabase.from('riders').insert({
         id: data.user.id,
         name: payload.name,
-        phone: payload.phone,
         email: payload.email,
         username: payload.username,
         status: 'active'
       });
       if (insertError) {
         setError('تم التحقق لكن تعذّر إنشاء الملف الشخصي — تواصل مع الدعم.');
+        return;
+      }
+      // Phone lives on its own table (0021), not the riders row -- so a
+      // matched driver can never read it via RLS, only the rider and admin.
+      const { error: contactError } = await supabase.from('rider_contacts').insert({ rider_id: data.user.id, phone: payload.phone });
+      if (contactError) {
+        setError('تم التحقق لكن تعذّر حفظ رقم الهاتف — تواصل مع الدعم.');
         return;
       }
       onVerified();

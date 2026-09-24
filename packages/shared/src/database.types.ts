@@ -125,6 +125,29 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_contacts: {
+        Row: {
+          driver_id: string
+          phone: string
+        }
+        Insert: {
+          driver_id: string
+          phone: string
+        }
+        Update: {
+          driver_id?: string
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_contacts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           accepted_count: number
@@ -136,7 +159,6 @@ export type Database = {
           lng: number | null
           name: string
           online: boolean
-          phone: string
           plate: string
           rejected_count: number
           selfie_url: string | null
@@ -154,7 +176,6 @@ export type Database = {
           lng?: number | null
           name: string
           online?: boolean
-          phone: string
           plate: string
           rejected_count?: number
           selfie_url?: string | null
@@ -172,7 +193,6 @@ export type Database = {
           lng?: number | null
           name?: string
           online?: boolean
-          phone?: string
           plate?: string
           rejected_count?: number
           selfie_url?: string | null
@@ -384,13 +404,35 @@ export type Database = {
           },
         ]
       }
+      rider_contacts: {
+        Row: {
+          phone: string
+          rider_id: string
+        }
+        Insert: {
+          phone: string
+          rider_id: string
+        }
+        Update: {
+          phone?: string
+          rider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_contacts_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: true
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       riders: {
         Row: {
           created_at: string
           email: string
           id: string
           name: string
-          phone: string
           photo_url: string | null
           status: Database["public"]["Enums"]["user_status"]
           username: string
@@ -400,7 +442,6 @@ export type Database = {
           email: string
           id: string
           name: string
-          phone: string
           photo_url?: string | null
           status?: Database["public"]["Enums"]["user_status"]
           username: string
@@ -410,12 +451,43 @@ export type Database = {
           email?: string
           id?: string
           name?: string
-          phone?: string
           photo_url?: string | null
           status?: Database["public"]["Enums"]["user_status"]
           username?: string
         }
         Relationships: []
+      }
+      ride_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          ride_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          ride_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          ride_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ride_messages_ride_id_fkey"
+            columns: ["ride_id"]
+            isOneToOne: false
+            referencedRelation: "rides"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rides: {
         Row: {
@@ -743,6 +815,22 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "rides"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      send_ride_message: {
+        Args: { p_body: string; p_ride_id: string }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          ride_id: string
+          sender_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ride_messages"
           isOneToOne: true
           isSetofReturn: false
         }

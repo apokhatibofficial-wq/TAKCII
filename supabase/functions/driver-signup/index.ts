@@ -41,7 +41,6 @@ Deno.serve(async (req) => {
     const { error: insertErr } = await admin.from('drivers').insert({
       id: created.user.id,
       name,
-      phone,
       email,
       username: String(username).trim(),
       plate: plate || '000000',
@@ -52,6 +51,13 @@ Deno.serve(async (req) => {
     if (insertErr) {
       await admin.auth.admin.deleteUser(created.user.id);
       return bad(400, insertErr.message);
+    }
+    // Phone lives on its own table (0021) so a matched rider can never read
+    // it via RLS -- only the driver themself and admin can.
+    const { error: contactErr } = await admin.from('driver_contacts').insert({ driver_id: created.user.id, phone });
+    if (contactErr) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      return bad(400, contactErr.message);
     }
 
     return new Response(JSON.stringify({ id: created.user.id }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });

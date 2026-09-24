@@ -41,25 +41,25 @@ export function useDriverProfile(userId: string | null) {
     }
     let cancelled = false;
     setLoading(true);
-    supabase
-      .from('drivers')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle()
-      .then(
-        ({ data }) => {
-          if (cancelled) return;
-          setDriver(data ? rowToCamel<Driver>(data) : null);
-          setLoading(false);
-        },
-        () => {
-          // A rejected promise here (rather than an {error} field) previously
-          // left loading stuck at true forever with no feedback at all.
-          if (cancelled) return;
-          setDriver(null);
-          setLoading(false);
-        }
-      );
+    Promise.all([
+      supabase.from('drivers').select('*').eq('id', userId).maybeSingle(),
+      // phone lives on its own table now (0021) -- drivers.select('*') no
+      // longer returns it, so merge it in from driver_contacts.
+      supabase.from('driver_contacts').select('phone').eq('driver_id', userId).maybeSingle()
+    ]).then(
+      ([{ data }, { data: contact }]) => {
+        if (cancelled) return;
+        setDriver(data ? { ...rowToCamel<Driver>(data), phone: contact?.phone ?? '' } : null);
+        setLoading(false);
+      },
+      () => {
+        // A rejected promise here (rather than an {error} field) previously
+        // left loading stuck at true forever with no feedback at all.
+        if (cancelled) return;
+        setDriver(null);
+        setLoading(false);
+      }
+    );
 
     // Realtime setup wrapped defensively: it runs immediately after every
     // login, before the app ever reaches Home, and nothing upstream of this
@@ -71,7 +71,10 @@ export function useDriverProfile(userId: string | null) {
       channel = supabase
         .channel(`driver-profile:${userId}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${userId}` }, (payload) => {
-          setDriver(rowToCamel<Driver>(payload.new as Record<string, unknown>));
+          // The drivers row itself has no phone column anymore -- the
+          // replication payload won't carry one, so keep whatever we already
+          // merged in from driver_contacts on initial load.
+          setDriver((prev) => ({ ...rowToCamel<Driver>(payload.new as Record<string, unknown>), phone: prev?.phone ?? '' }));
         })
         .subscribe();
     } catch {

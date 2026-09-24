@@ -47,13 +47,21 @@ Deno.serve(async (req) => {
     }
 
     const table = role === 'rider' ? 'riders' : 'drivers';
+    const contactTable = role === 'rider' ? 'rider_contacts' : 'driver_contacts';
+    const contactIdCol = role === 'rider' ? 'rider_id' : 'driver_id';
     // Two structured .eq() lookups rather than a hand-built .or() filter
     // string — id is caller-controlled, and .or() takes a raw PostgREST
     // filter expression that has to be escaped by hand if you interpolate
     // into it, unlike .eq(column, value) which the client encodes safely.
-    let data = (await admin.from(table).select('email, status').eq('username', id).maybeSingle()).data;
+    let data = (await admin.from(table).select('id, email, status').eq('username', id).maybeSingle()).data;
     if (!data) {
-      data = (await admin.from(table).select('email, status').eq('phone', id).maybeSingle()).data;
+      // phone lives on a separate contact table now (0021) so a rider/driver
+      // can never see a matched counterparty's number via RLS -- this
+      // lookup is unaffected since it runs with the service role.
+      const contact = (await admin.from(contactTable).select(contactIdCol).eq('phone', id).maybeSingle()).data as Record<string, string> | null;
+      if (contact) {
+        data = (await admin.from(table).select('id, email, status').eq('id', contact[contactIdCol]).maybeSingle()).data;
+      }
     }
 
     if (!data) {

@@ -14,8 +14,16 @@ export default function Users() {
   const { toastText, toast } = useToast();
 
   const load = async () => {
-    const { data } = await supabase.from('riders').select('*').order('created_at', { ascending: false });
-    if (data) setRows(data.map((r) => rowToCamel<Rider>(r)));
+    const [{ data }, { data: contacts }] = await Promise.all([
+      supabase.from('riders').select('*').order('created_at', { ascending: false }),
+      // phone lives on its own table now (0021) -- only the admin and the
+      // rider themself can read it, merge it in here for display/editing.
+      supabase.from('rider_contacts').select('rider_id,phone')
+    ]);
+    if (data) {
+      const phoneById = new Map((contacts ?? []).map((c) => [c.rider_id, c.phone]));
+      setRows(data.map((r) => ({ ...rowToCamel<Rider>(r), phone: phoneById.get(r.id) ?? '' })));
+    }
   };
   useEffect(() => {
     load();
@@ -135,7 +143,10 @@ function EditUserModal({ user, onClose, onSaved }: { user: Rider; onClose: () =>
   const [username, setUsername] = useState(user.username);
 
   const save = async () => {
-    await supabase.from('riders').update({ name, phone, email, username }).eq('id', user.id);
+    await Promise.all([
+      supabase.from('riders').update({ name, email, username }).eq('id', user.id),
+      supabase.from('rider_contacts').update({ phone }).eq('rider_id', user.id)
+    ]);
     onSaved();
   };
 

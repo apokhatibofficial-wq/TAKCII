@@ -2,12 +2,13 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { supabase } from '../lib/supabase';
 import { fmtMoney, type CurrencyCode, type Ride } from '@takc/shared';
 import { useFare } from '../hooks/useFare';
+import ChatOverlay from './ChatOverlay';
 
 interface DriverInfo {
   name: string;
   car: string;
   plate: string;
-  phone: string;
+  selfieUrl: string | null;
 }
 
 const STATUS_TEXT: Record<string, string> = {
@@ -21,6 +22,7 @@ const STATUS_TEXT: Record<string, string> = {
 // subscription, fed by the driver app's accept/reject/trip actions.
 export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onCancel: () => void; onReset: () => void }) {
   const [driver, setDriver] = useState<DriverInfo | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const { pricing } = useFare();
 
   // The "riders view matched driver" RLS policy only opens once status is
@@ -38,11 +40,11 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
     let cancelled = false;
     supabase
       .from('drivers')
-      .select('name,car,plate,phone')
+      .select('name,car,plate,selfie_url')
       .eq('id', ride.driverId as string)
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled && data) setDriver(data);
+        if (!cancelled && data) setDriver({ name: data.name, car: data.car, plate: data.plate, selfieUrl: data.selfie_url });
       });
     return () => {
       cancelled = true;
@@ -75,7 +77,11 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
     return (
       <>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={avatarStyle}>{(driver?.name ?? '؟').slice(0, 1)}</div>
+          {driver?.selfieUrl ? (
+            <img src={driver.selfieUrl} alt="" style={{ ...avatarStyle, objectFit: 'cover' }} />
+          ) : (
+            <div style={avatarStyle}>{(driver?.name ?? '؟').slice(0, 1)}</div>
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ font: "800 17px/1.3 FreePalestine,Tajawal,sans-serif" }}>{driver?.name ?? '…'}</div>
             <div style={{ font: "400 12.5px/1.5 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
@@ -88,11 +94,12 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
           {STATUS_TEXT[ride.status]}
         </div>
         <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-          <a href={driver ? `tel:${driver.phone}` : undefined} style={callBtnStyle}>
-            اتصال بالسائق
-          </a>
+          <button onClick={() => setChatOpen(true)} style={callBtnStyle}>
+            مراسلة السائق
+          </button>
           <button onClick={onCancel} style={cancelInlineBtnStyle}>إلغاء</button>
         </div>
+        {chatOpen && <ChatOverlay rideId={ride.id} onClose={() => setChatOpen(false)} />}
       </>
     );
   }

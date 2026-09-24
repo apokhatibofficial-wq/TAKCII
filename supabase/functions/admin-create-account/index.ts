@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     if (createErr || !created.user) return bad(400, createErr?.message ?? 'auth_create_failed');
 
     const table = role === 'rider' ? 'riders' : 'drivers';
-    const row: Record<string, unknown> = { id: created.user.id, name, phone, email: finalEmail, username: String(username).trim(), status: 'active' };
+    const row: Record<string, unknown> = { id: created.user.id, name, email: finalEmail, username: String(username).trim(), status: 'active' };
     if (role === 'driver') {
       row.plate = plate || '000000';
       row.car = car || 'غير محدد';
@@ -55,6 +55,14 @@ Deno.serve(async (req) => {
     if (insertErr) {
       await admin.auth.admin.deleteUser(created.user.id);
       return bad(400, insertErr.message);
+    }
+    // Phone lives on its own table (0021), separate from the row above.
+    const contactTable = role === 'rider' ? 'rider_contacts' : 'driver_contacts';
+    const contactIdCol = role === 'rider' ? 'rider_id' : 'driver_id';
+    const { error: contactErr } = await admin.from(contactTable).insert({ [contactIdCol]: created.user.id, phone });
+    if (contactErr) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      return bad(400, contactErr.message);
     }
 
     return new Response(JSON.stringify({ id: created.user.id }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
