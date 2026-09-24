@@ -7,9 +7,10 @@ export interface MapMarker {
   id: string;
   lat: number;
   lng: number;
-  kind: 'me' | 'dest' | 'driver';
+  kind: 'me' | 'dest' | 'driver' | 'place';
   title?: string;
   imageUrl?: string | null;
+  onClick?: () => void;
 }
 
 interface MapViewProps {
@@ -44,12 +45,16 @@ function iconFor(kind: MapMarker['kind'], imageUrl?: string | null): L.Icon | L.
       html: '<div style="width:22px;height:22px;border-radius:50%;background:#008637;border:3px solid #fff;box-shadow:0 0 0 6px rgba(0,134,55,.2)"></div>'
     });
   }
-  if (kind === 'dest' && imageUrl) {
+  // Same circular photo treatment for the selected destination and for a
+  // 'place' pin shown while still choosing one -- imageUrl presence, not
+  // which of the two kinds it is, is what decides this look.
+  if (imageUrl) {
+    const size = kind === 'place' ? 34 : 42;
     return L.divIcon({
       className: '',
-      iconSize: [42, 42],
-      iconAnchor: [21, 21],
-      html: `<div style="width:42px;height:42px;border-radius:50%;overflow:hidden;background:#fff;border:3px solid #fde403;box-shadow:0 2px 10px rgba(24,22,25,.4)"><img src="${escapeHtmlAttr(imageUrl)}" style="width:100%;height:100%;object-fit:cover;display:block" /></div>`
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;background:#fff;border:3px solid #fde403;box-shadow:0 2px 10px rgba(24,22,25,.4)"><img src="${escapeHtmlAttr(imageUrl)}" style="width:100%;height:100%;object-fit:cover;display:block" /></div>`
     });
   }
   return L.divIcon({
@@ -102,7 +107,18 @@ export default function MapView({ markers, routeGeometry, onMapClick }: MapViewP
         return;
       }
       const marker = L.marker([m.lat, m.lng], { icon: iconFor(m.kind, m.imageUrl) }).addTo(map);
-      if (m.title) marker.bindTooltip(m.title, { direction: 'top' });
+      // 'place' pins are shown several at once while the rider is still
+      // choosing a destination, so (unlike 'dest') their name has to be
+      // readable without a hover/tap -- a permanent pill label above the pin.
+      if (m.title) {
+        marker.bindTooltip(
+          m.title,
+          m.kind === 'place'
+            ? { direction: 'top', permanent: true, className: 'place-label-tooltip', offset: [0, -20] }
+            : { direction: 'top' }
+        );
+      }
+      if (m.onClick) marker.on('click', m.onClick);
       markersRef.current[m.id] = marker;
     });
     Object.entries(markersRef.current).forEach(([id, marker]) => {

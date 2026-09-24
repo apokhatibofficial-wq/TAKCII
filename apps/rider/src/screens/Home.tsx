@@ -91,10 +91,16 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
 
   const markers = useMemo<MapMarker[]>(() => {
     const list: MapMarker[] = [{ id: 'me', lat: pickup.lat, lng: pickup.lng, kind: 'me', title: 'موقعك' }];
-    if (dest) list.push({ id: 'dest', lat: dest.lat, lng: dest.lng, kind: 'dest', title: dest.name, imageUrl: dest.imageUrl });
+    if (dest) {
+      list.push({ id: 'dest', lat: dest.lat, lng: dest.lng, kind: 'dest', title: dest.name, imageUrl: dest.imageUrl });
+    } else {
+      featured.forEach((p) =>
+        list.push({ id: `place:${p.id}`, lat: p.lat, lng: p.lng, kind: 'place', title: p.name, imageUrl: p.imageUrl, onClick: () => selectDest(p) })
+      );
+    }
     if (driverLocation) list.push({ id: 'driver', lat: driverLocation.lat, lng: driverLocation.lng, kind: 'driver', title: 'السائق' });
     return list;
-  }, [pickup, dest, driverLocation]);
+  }, [pickup, dest, driverLocation, featured, selectDest]);
 
   // A single getCurrentPosition call often resolves with whatever fix is
   // available first (frequently a coarse network/Wi-Fi estimate, off by
