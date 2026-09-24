@@ -46,6 +46,7 @@ export interface Place {
   lat: number;
   lng: number;
   source: 'manual' | 'osm';
+  imageUrl: string | null;
   createdAt: string;
 }
 

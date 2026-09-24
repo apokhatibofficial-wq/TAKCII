@@ -217,6 +217,7 @@ export type Database = {
           area: string
           created_at: string
           id: string
+          image_url: string | null
           kind: string | null
           lat: number
           lng: number
@@ -227,6 +228,7 @@ export type Database = {
           area: string
           created_at?: string
           id?: string
+          image_url?: string | null
           kind?: string | null
           lat: number
           lng: number
@@ -237,6 +239,7 @@ export type Database = {
           area?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           kind?: string | null
           lat?: number
           lng?: number

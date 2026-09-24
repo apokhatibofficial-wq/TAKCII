@@ -9,6 +9,7 @@ export interface SearchPlace {
   kind: string | null;
   lat: number;
   lng: number;
+  imageUrl: string | null;
 }
 
 // Ported from index.html's `results` computation in renderVals(): filters the
@@ -23,9 +24,9 @@ export function usePlacesSearch(from: [number, number] | null, query: string) {
     let cancelled = false;
     supabase
       .from('places')
-      .select('id,name,area,kind,lat,lng')
+      .select('id,name,area,kind,lat,lng,image_url')
       .then(({ data }) => {
-        if (!cancelled && data) setPlaces(data);
+        if (!cancelled && data) setPlaces(data.map((p) => ({ ...p, imageUrl: p.image_url })));
       });
     return () => {
       cancelled = true;

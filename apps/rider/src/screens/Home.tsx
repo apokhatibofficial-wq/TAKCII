@@ -83,7 +83,7 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
     setPickingOnMap(false);
     setGeocoding(true);
     const [name, route] = await Promise.all([reverseGeocode(lat, lng), distanceOrEstimate(from, [lat, lng])]);
-    setDest({ id: `map:${lat},${lng}`, name, area: '', kind: null, lat, lng });
+    setDest({ id: `map:${lat},${lng}`, name, area: '', kind: null, lat, lng, imageUrl: null });
     setManualRoute(route);
     setQuery('');
     setGeocoding(false);
@@ -272,7 +272,11 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
                 return (
                   <button key={r.id} onClick={() => selectDest(r)} style={resultRowStyle}
                   >
-                    <span style={resultIconStyle}>◎</span>
+                    {r.imageUrl ? (
+                      <img src={r.imageUrl} alt="" style={resultImageStyle} />
+                    ) : (
+                      <span style={resultIconStyle}>◎</span>
+                    )}
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', font: "700 13.5px/1.3 'IBM Plex Sans Arabic',sans-serif" }}>{r.name}</span>
                       <span style={{ display: 'block', font: "400 11.5px/1.4 'IBM Plex Sans Arabic',sans-serif", color: '#575757' }}>
@@ -460,6 +464,13 @@ const resultIconStyle: CSSProperties = {
   display: 'grid',
   placeItems: 'center',
   fontSize: 14,
+  flex: 'none'
+};
+const resultImageStyle: CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 11,
+  objectFit: 'cover',
   flex: 'none'
 };
 
