@@ -78,9 +78,27 @@ jobs:
           VERCEL_PROJECT_ID: prj_ws7gmylbpzdgQdXhf1AxTnByyfna
         run: |
           if [ "${{ inputs.seed_env_vars }}" = "true" ]; then
+            VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
+            # `vercel env add` is interactive-only for values it heuristically
+            # flags as "looks like a credential" (JWTs, DSNs) -- it drops into
+            # an arrow-key menu with no TTY to answer it, which the previous
+            # version of this step ran straight into: it silently moved on
+            # without ever actually saving VITE_SUPABASE_ANON_KEY or
+            # VITE_SENTRY_DSN, while VITE_SUPABASE_URL/VITE_VAPID_PUBLIC_KEY
+            # (which don't trip that heuristic) saved fine. The REST API has
+            # no such prompt, so use it directly instead.
             set_env() {
-              npx vercel env rm "$1" production --yes --token=${{ secrets.VERCEL_TOKEN }} >/dev/null 2>&1 || true
-              printf '%s' "$2" | npx vercel env add "$1" production --token=${{ secrets.VERCEL_TOKEN }}
+              local key="$1" value="$2"
+              existing_id=$(curl -sS "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" -H "Authorization: Bearer $VERCEL_TOKEN" \
+                | jq -r --arg k "$key" '.envs[]? | select(.key==$k and (.target|index("production"))) | .id' | head -1)
+              if [ -n "$existing_id" ]; then
+                curl -sS -X DELETE "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$existing_id?teamId=$VERCEL_ORG_ID" -H "Authorization: Bearer $VERCEL_TOKEN" >/dev/null
+              fi
+              payload=$(jq -n --arg k "$key" --arg v "$value" '{key:$k, value:$v, type:"encrypted", target:["production"]}')
+              code=$(curl -sS -o /tmp/setenv_resp.json -w '%{http_code}' -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+                -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" -d "$payload")
+              echo "set $key -> HTTP $code"
+              if [ "$code" -ge 300 ]; then cat /tmp/setenv_resp.json; exit 1; fi
             }
             set_env VITE_SUPABASE_URL "${{ inputs.vite_supabase_url }}"
             set_env VITE_SUPABASE_ANON_KEY "${{ inputs.vite_supabase_anon_key }}"
@@ -96,9 +114,19 @@ jobs:
           VERCEL_PROJECT_ID: prj_X7JwAiRUiqpTnMNZgRN8mleALRx0
         run: |
           if [ "${{ inputs.seed_env_vars }}" = "true" ]; then
+            VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
             set_env() {
-              npx vercel env rm "$1" production --yes --token=${{ secrets.VERCEL_TOKEN }} >/dev/null 2>&1 || true
-              printf '%s' "$2" | npx vercel env add "$1" production --token=${{ secrets.VERCEL_TOKEN }}
+              local key="$1" value="$2"
+              existing_id=$(curl -sS "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" -H "Authorization: Bearer $VERCEL_TOKEN" \
+                | jq -r --arg k "$key" '.envs[]? | select(.key==$k and (.target|index("production"))) | .id' | head -1)
+              if [ -n "$existing_id" ]; then
+                curl -sS -X DELETE "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$existing_id?teamId=$VERCEL_ORG_ID" -H "Authorization: Bearer $VERCEL_TOKEN" >/dev/null
+              fi
+              payload=$(jq -n --arg k "$key" --arg v "$value" '{key:$k, value:$v, type:"encrypted", target:["production"]}')
+              code=$(curl -sS -o /tmp/setenv_resp.json -w '%{http_code}' -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+                -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" -d "$payload")
+              echo "set $key -> HTTP $code"
+              if [ "$code" -ge 300 ]; then cat /tmp/setenv_resp.json; exit 1; fi
             }
             set_env VITE_SUPABASE_URL "${{ inputs.vite_supabase_url }}"
             set_env VITE_SUPABASE_ANON_KEY "${{ inputs.vite_supabase_anon_key }}"
