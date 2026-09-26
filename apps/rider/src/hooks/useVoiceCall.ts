@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { ICE_SERVERS, callChannelTopic, randomCallId, type CallSignalPayload } from '@takc/shared';
+import { ICE_SERVERS, fetchIceServers, callChannelTopic, randomCallId, type CallSignalPayload } from '@takc/shared';
 
 export type CallStatus = 'idle' | 'ringing-incoming' | 'ringing-outgoing' | 'connecting' | 'connected';
 export type EndedReason = 'hangup' | 'busy' | 'no-answer' | 'error' | null;
@@ -32,6 +32,7 @@ export function useVoiceCall(rideId: string | null) {
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const incomingOfferRef = useRef<{ callId: string; sdp: string } | null>(null);
   const ringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iceServersRef = useRef<RTCIceServer[]>(ICE_SERVERS);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -77,7 +78,7 @@ export function useVoiceCall(rideId: string | null) {
   );
 
   const createPeerConnection = useCallback(() => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
     pc.onicecandidate = (e) => {
       if (e.candidate && callIdRef.current && myIdRef.current) {
         send({
@@ -170,6 +171,10 @@ export function useVoiceCall(rideId: string | null) {
     goIdle(null);
     setEndedReason(null);
     if (!rideId) return;
+
+    fetchIceServers(supabase).then((servers) => {
+      iceServersRef.current = servers;
+    });
 
     const channel = supabase.channel(callChannelTopic(rideId), { config: { private: true } });
     channel.on('broadcast', { event: 'signal' }, ({ payload }: { payload: CallSignalPayload }) => {
