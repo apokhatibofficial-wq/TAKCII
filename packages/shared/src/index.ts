@@ -6,4 +6,5 @@ export * from './supabase';
 export * from './caseMap';
 export * from './notifications';
 export * from './ads';
+export * from './webrtc';
 export type { Database } from './database.types';

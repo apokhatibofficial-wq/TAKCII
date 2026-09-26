@@ -9,8 +9,10 @@ import { useDriverRide } from '../hooks/useDriverRide';
 import { useDriverStats } from '../hooks/useDriverStats';
 import { useFare } from '../hooks/useFare';
 import { usePushToken } from '../hooks/usePushToken';
+import { useVoiceCall } from '../hooks/useVoiceCall';
 import Profile from './Profile';
 import AdOverlay from '../components/AdOverlay';
+import CallOverlay from '../components/CallOverlay';
 import ChatOverlay from '../components/ChatOverlay';
 import PickupMap from '../components/PickupMap';
 import RateRiderOverlay from '../components/RateRiderOverlay';
@@ -44,6 +46,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
   const stats = useDriverStats(driver.id);
   const ride = useDriverRide(driver.id);
   const ad = useActiveAd();
+  const call = useVoiceCall(ride.trip ? ride.trip.id : null);
   usePushToken(driver.id);
 
   useEffect(() => {
@@ -273,8 +276,11 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
               </View>
             </View>
             <View style={styles.tripActionsRow}>
+              <Pressable onPress={call.startCall} style={styles.callBtn}>
+                <Text style={styles.callBtnText}>اتصال</Text>
+              </Pressable>
               <Pressable onPress={() => setChatOpen(true)} style={styles.messageBtn}>
-                <Text style={styles.messageBtnText}>مراسلة الراكب</Text>
+                <Text style={styles.messageBtnText}>مراسلة</Text>
               </Pressable>
               <Pressable onPress={ride.advanceTrip} style={styles.advanceBtn}>
                 <Text style={styles.advanceBtnText}>{TRIP_ACTION_LABELS[ride.trip.status] ?? 'إنهاء الرحلة'}</Text>
@@ -375,6 +381,8 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
 
       {chatOpen && ride.trip && <ChatOverlay rideId={ride.trip.id} myId={driver.id} onClose={() => setChatOpen(false)} />}
 
+      <CallOverlay call={call} />
+
       {ad && !adDismissed && <AdOverlay ad={ad} onClose={() => setAdDismissed(true)} />}
     </View>
   );
@@ -455,6 +463,8 @@ const styles = StyleSheet.create({
   dotGreen: { width: 9, height: 9, borderRadius: 5, backgroundColor: COLORS.green },
   dotBlack: { width: 9, height: 9, borderRadius: 2, backgroundColor: COLORS.black },
   tripActionsRow: { flexDirection: 'row', gap: 9, marginTop: 16 },
+  callBtn: { flex: 1, paddingVertical: 15, borderRadius: 14, backgroundColor: COLORS.green, alignItems: 'center' },
+  callBtnText: { color: COLORS.white, fontFamily: FONT.bold, fontSize: 13.5 },
   messageBtn: { flex: 1, paddingVertical: 15, borderWidth: 1.5, borderColor: 'rgba(24,22,25,0.14)', borderRadius: 14, alignItems: 'center' },
   messageBtnText: { color: COLORS.black, fontFamily: FONT.bold, fontSize: 13.5 },
   advanceBtn: { flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: COLORS.green, alignItems: 'center' },

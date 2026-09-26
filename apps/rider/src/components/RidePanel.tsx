@@ -2,7 +2,9 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { supabase } from '../lib/supabase';
 import { fmtMoney, type CurrencyCode, type Ride } from '@takc/shared';
 import { useFare } from '../hooks/useFare';
+import { useVoiceCall } from '../hooks/useVoiceCall';
 import ChatOverlay from './ChatOverlay';
+import CallOverlay from './CallOverlay';
 
 interface DriverInfo {
   name: string;
@@ -24,6 +26,8 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
   const [driver, setDriver] = useState<DriverInfo | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const { pricing } = useFare();
+  const isLiveForCall = ride.status === 'toPickup' || ride.status === 'arrived' || ride.status === 'onTrip';
+  const call = useVoiceCall(isLiveForCall ? ride.id : null);
 
   // The "riders view matched driver" RLS policy only opens once status is
   // toPickup or later — driverId is already set during 'dispatched' (the
@@ -94,12 +98,16 @@ export default function RidePanel({ ride, onCancel, onReset }: { ride: Ride; onC
           {STATUS_TEXT[ride.status]}
         </div>
         <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-          <button onClick={() => setChatOpen(true)} style={callBtnStyle}>
-            مراسلة السائق
+          <button onClick={call.startCall} style={callBtnStyle}>
+            اتصال
+          </button>
+          <button onClick={() => setChatOpen(true)} style={messageBtnStyle}>
+            مراسلة
           </button>
           <button onClick={onCancel} style={cancelInlineBtnStyle}>إلغاء</button>
         </div>
         {chatOpen && <ChatOverlay rideId={ride.id} onClose={() => setChatOpen(false)} />}
+        <CallOverlay call={call} />
       </>
     );
   }
@@ -254,6 +262,16 @@ const callBtnStyle: CSSProperties = {
   textAlign: 'center',
   textDecoration: 'none',
   display: 'block'
+};
+const messageBtnStyle: CSSProperties = {
+  flex: 1,
+  padding: 13,
+  border: '1.5px solid #e7e1d0',
+  borderRadius: 14,
+  background: '#fff',
+  color: 'var(--color-black)',
+  font: "700 13.5px/1.35 'IBM Plex Sans Arabic',sans-serif",
+  cursor: 'pointer'
 };
 const cancelInlineBtnStyle: CSSProperties = {
   flex: 1,
