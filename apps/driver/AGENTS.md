@@ -2,6 +2,20 @@
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
+# newArchEnabled must stay false
+
+react-native-webrtc does not yet fully support React Native's New
+Architecture (Fabric/TurboModules) -- see the library's own open tracking
+issue react-native-webrtc/react-native-webrtc#1557. Expo 57 / RN 0.86
+turns the New Architecture on by default with no flag needed, so the
+first build that added react-native-webrtc crashed immediately on launch
+on a real device ("has stopped" with no further detail) even though it
+built, signed, and installed fine -- same failure shape as the minify
+issue below, different cause. `"newArchEnabled": false` in app.json
+forces the legacy bridge, which react-native-webrtc supports correctly.
+Revisit this once that upstream issue is closed and this project's other
+native modules have been confirmed New-Architecture-compatible too.
+
 # Release builds: do not pass `-Pandroid.enableMinifyInReleaseBuilds=true`
 
 proguard-rules.pro only has keep rules for react-native-reanimated — nothing
