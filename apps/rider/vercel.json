@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/driver-app.apk",
+      "destination": "https://expo.dev/artifacts/eas/KkjMmwFnABfpqCub3OrJI0_HvDtHlvf7mR-GfTUVHU0.apk",
+      "permanent": false
+    }
+  ]
+}
