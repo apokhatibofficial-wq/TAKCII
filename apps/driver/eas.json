@@ -17,7 +17,8 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://lumalzmpljqivexmtpze.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1bWFsem1wbGpxaXZleG10cHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzYzMTQsImV4cCI6MjEwNTA1MjMxNH0.qRU6n5Nw91uvmZPWXge0xd1YD2U76R3mVTTQbcaLKVc",
         "EXPO_PUBLIC_EAS_PROJECT_ID": "59da0d1f-e076-4d37-8e09-73f18730c84a"
-      }
+      },
+      "channel": "production"
     }
   }
 }
