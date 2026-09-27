@@ -70,7 +70,8 @@
         {
           "microphonePermission": "يحتاج TAK-C.TAXI الوصول إلى الميكروفون لإجراء مكالمة صوتية مع الراكب داخل التطبيق."
         }
-      ]
+      ],
+      "./plugins/withSafeWebRTC.js"
     ],
     "extra": {
       "eas": {
