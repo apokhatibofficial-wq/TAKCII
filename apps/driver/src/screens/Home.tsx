@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
@@ -51,6 +51,7 @@ function pickupLabel(name: string, driverLat: number | null, driverLng: number |
 // own "liteMap" fallback styling instead of pulling in a native map library.
 export default function Home({ driver, setDriver, onLogout }: { driver: Driver; setDriver: (d: Driver) => void; onLogout: () => void }) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [riderName, setRiderName] = useState('');
   const [showProfile, setShowProfile] = useState(false);
@@ -248,7 +249,10 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
 
       <View style={{ flex: 1 }} />
 
-      <View style={[styles.sheet, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
+      <ScrollView
+        style={[styles.sheet, { maxHeight: windowHeight - insets.top - 88 }]}
+        contentContainerStyle={[styles.sheetContent, { paddingBottom: Math.max(18, insets.bottom + 12) }]}
+      >
         <View style={styles.grabber} />
 
         {waitHasTotal && (
@@ -334,7 +338,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       {incoming && (
         <ScrollView
@@ -447,14 +451,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    padding: 18,
-    paddingTop: 16,
     elevation: 12,
     shadowColor: COLORS.black,
     shadowOpacity: 0.18,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: -6 }
   },
+  sheetContent: { padding: 18, paddingTop: 16 },
   grabber: { width: 44, height: 4, borderRadius: 4, backgroundColor: '#e2dcca', alignSelf: 'center', marginBottom: 14 },
   waitPanel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.cream, borderRadius: 14, padding: 13, marginBottom: 12 },
   waitPanelTitle: { fontSize: 12.5, fontFamily: FONT.bold, color: COLORS.black, textAlign: 'right' },
