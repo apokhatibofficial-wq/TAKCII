@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { supabase } from '../lib/supabase';
 import { isBackgroundLocationRunning, requestLocationPermissions, startBackgroundLocation, stopBackgroundLocation } from '../location/backgroundTask';
@@ -31,12 +32,25 @@ function fmtClock(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// Set when the rider's pickup point came from live GPS or a dropped map pin
+// instead of a named place (see apps/rider/src/screens/Home.tsx and
+// packages/shared/src/osm.ts's reverseGeocode) -- meaningless to the driver,
+// so show a distance instead of the raw placeholder text.
+const GENERIC_PICKUP_NAMES = new Set(['موقعك الحالي', 'الموقع المحدد على الخريطة']);
+
+function pickupLabel(name: string, driverLat: number | null, driverLng: number | null, pickupLat: number, pickupLng: number): string {
+  if (!GENERIC_PICKUP_NAMES.has(name) || driverLat == null || driverLng == null) return name;
+  const meters = Math.round(haversineKm([driverLat, driverLng], [pickupLat, pickupLng]) * 1320);
+  return `الراكب على بعد ${meters} متر منك`;
+}
+
 // Ported from index.html's dHomeScreen block (online toggle / stats / active
 // trip / incoming-request overlay). The live map background (fullMap in the
 // prototype) is out of scope here — the driver app's job is background GPS
 // + the negotiation flow, not route browsing, so this uses the prototype's
 // own "liteMap" fallback styling instead of pulling in a native map library.
 export default function Home({ driver, setDriver, onLogout }: { driver: Driver; setDriver: (d: Driver) => void; onLogout: () => void }) {
+  const insets = useSafeAreaInsets();
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [riderName, setRiderName] = useState('');
   const [showProfile, setShowProfile] = useState(false);
@@ -206,7 +220,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         <Image source={TAXI_WATERMARK} style={styles.mapWatermark} resizeMode="contain" />
       </LinearGradient>
 
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: 12 + insets.top }]}>
         <Pressable onPress={() => setShowProfile(true)} style={styles.profileCard}>
           <View style={styles.avatar}>
             {driver.selfieUrl ? (
@@ -225,7 +239,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
         </Pressable>
       </View>
 
-      <Pressable onPress={handleToggleWait} disabled={!ride.waitRunning && ride.waitRuns >= ride.maxWaitRuns} style={[styles.waitBtn, ride.waitRunning && styles.waitBtnActive, !ride.waitRunning && ride.waitRuns >= ride.maxWaitRuns && { opacity: 0.55 }]}>
+      <Pressable onPress={handleToggleWait} disabled={!ride.waitRunning && ride.waitRuns >= ride.maxWaitRuns} style={[styles.waitBtn, { top: insets.top + 78 }, ride.waitRunning && styles.waitBtnActive, !ride.waitRunning && ride.waitRuns >= ride.maxWaitRuns && { opacity: 0.55 }]}>
         <Text style={[styles.waitBtnLabel, ride.waitRunning && styles.waitBtnLabelActive]}>
           {ride.waitRunning ? 'إيقاف' : ride.waitRuns >= ride.maxWaitRuns ? 'انتهى' : 'انتظار'}
         </Text>
@@ -234,7 +248,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
 
       <View style={{ flex: 1 }} />
 
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
         <View style={styles.grabber} />
 
         {waitHasTotal && (
@@ -259,12 +273,18 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
               </View>
             )}
 
+            {ride.trip.status === 'onTrip' && (
+              <View style={{ marginTop: 12, marginBottom: 4 }}>
+                <PickupMap lat={ride.trip.destLat} lng={ride.trip.destLng} label={ride.trip.destName} />
+              </View>
+            )}
+
             <View style={{ marginTop: 14, gap: 10 }}>
               <View>
                 <Text style={styles.tripLabel}>موقع الراكب</Text>
                 <View style={styles.tripRow}>
                   <View style={styles.dotGreen} />
-                  <Text style={styles.tripValue}>{ride.trip.pickupName}</Text>
+                  <Text style={styles.tripValue}>{pickupLabel(ride.trip.pickupName, driver.lat, driver.lng, ride.trip.pickupLat, ride.trip.pickupLng)}</Text>
                 </View>
               </View>
               <View>
@@ -317,7 +337,10 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
       </View>
 
       {incoming && (
-        <ScrollView style={styles.incomingOverlay} contentContainerStyle={styles.incomingContent}>
+        <ScrollView
+          style={styles.incomingOverlay}
+          contentContainerStyle={[styles.incomingContent, { paddingTop: 24 + insets.top, paddingBottom: Math.max(22, insets.bottom + 12) }]}
+        >
           <View style={styles.incomingHeader}>
             <View style={styles.pulseDot} />
             <Text style={styles.incomingHeaderText}>طلب رحلة جديد</Text>
@@ -337,7 +360,7 @@ export default function Home({ driver, setDriver, onLogout }: { driver: Driver; 
               <View style={styles.dotGreenSm} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.reqLabel}>نقطة الانطلاق</Text>
-                <Text style={styles.reqValue}>{incoming.pickupName}</Text>
+                <Text style={styles.reqValue}>{pickupLabel(incoming.pickupName, driver.lat, driver.lng, incoming.pickupLat, incoming.pickupLng)}</Text>
               </View>
               <Text style={styles.reqDistance}>{reqDistance}</Text>
             </View>
@@ -415,7 +438,7 @@ const styles = StyleSheet.create({
   profileSub: { fontSize: 11, fontFamily: FONT.regular, color: COLORS.textMuted, textAlign: 'right', marginTop: 2 },
   iconBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: COLORS.white, borderWidth: 1, borderColor: 'rgba(24,22,25,0.1)', alignItems: 'center', justifyContent: 'center', elevation: 3 },
   iconBtnText: { fontSize: 11, fontFamily: FONT.bold, color: COLORS.danger },
-  waitBtn: { position: 'absolute', top: 120, left: 12, width: 70, borderWidth: 2, borderColor: 'rgba(24,22,25,0.1)', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', gap: 5, backgroundColor: COLORS.white, elevation: 4 },
+  waitBtn: { position: 'absolute', left: 12, width: 70, borderWidth: 2, borderColor: 'rgba(24,22,25,0.1)', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', gap: 5, backgroundColor: COLORS.white, elevation: 4 },
   waitBtnActive: { borderColor: COLORS.danger, backgroundColor: COLORS.danger },
   waitBtnLabel: { fontSize: 10, fontFamily: FONT.bold, color: COLORS.black },
   waitBtnLabelActive: { color: COLORS.white },

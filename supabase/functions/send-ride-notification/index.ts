@@ -26,13 +26,41 @@ interface RideNotification {
   body: string;
 }
 
+// Set when the rider's pickup point comes from live GPS or a dropped map pin
+// rather than a named place (see apps/rider/src/screens/Home.tsx and
+// packages/shared/src/osm.ts's reverseGeocode) — meaningless once it leaks
+// into a notification shown to the driver, so resolvePickupLabel below
+// swaps it for a distance instead.
+const GENERIC_PICKUP_NAMES = new Set(['موقعك الحالي', 'الموقع المحدد على الخريطة']);
+
+function haversineMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+async function resolvePickupLabel(ride: Record<string, unknown>, admin: ReturnType<typeof createClient>): Promise<string> {
+  const name = ride.pickup_name as string;
+  if (!GENERIC_PICKUP_NAMES.has(name)) return name;
+  const driverId = ride.driver_id as string | null;
+  if (!driverId) return name;
+  const { data: driver } = await admin.from('drivers').select('lat, lng').eq('id', driverId).maybeSingle();
+  if (!driver || driver.lat == null || driver.lng == null) return name;
+  const meters = Math.round(haversineMeters(driver.lat, driver.lng, ride.pickup_lat as number, ride.pickup_lng as number) * 1.32);
+  return `الراكب على بعد ${meters} متر منك`;
+}
+
 // The one place that maps a ride's current state to "who gets notified,
 // saying what" — every RPC call site below shares this instead of each
 // guessing at copy.
-function notificationFor(ride: Record<string, unknown>): RideNotification | null {
+async function notificationFor(ride: Record<string, unknown>, admin: ReturnType<typeof createClient>): Promise<RideNotification | null> {
   const status = ride.status as string;
   if (status === 'dispatched' && ride.driver_id) {
-    return { targetUserId: ride.driver_id as string, title: 'طلب رحلة جديد', body: `${ride.pickup_name} إلى ${ride.dest_name}` };
+    const pickupLabel = await resolvePickupLabel(ride, admin);
+    return { targetUserId: ride.driver_id as string, title: 'طلب رحلة جديد', body: `${pickupLabel} إلى ${ride.dest_name}` };
   }
   if (status === 'toPickup' && ride.rider_id) {
     return { targetUserId: ride.rider_id as string, title: 'تم العثور على سائق', body: 'السائق في طريقه إليك الآن' };
@@ -81,7 +109,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const notification = notificationFor(ride as unknown as Record<string, unknown>);
+    const notification = await notificationFor(ride as unknown as Record<string, unknown>, admin);
     if (!notification) {
       return new Response(JSON.stringify({ sent: false }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
     }

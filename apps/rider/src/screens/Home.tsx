@@ -128,8 +128,19 @@ export default function Home({ onOpenProfile }: { onOpenProfile: () => void }) {
       if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
       if (maxTimer !== undefined) clearTimeout(maxTimer);
       if (best) {
-        setPickup({ lat: best.coords.latitude, lng: best.coords.longitude, name: 'موقعك الحالي' });
+        const lat = best.coords.latitude;
+        const lng = best.coords.longitude;
+        // 'موقعك الحالي' is only meaningful inside this screen -- it also
+        // becomes rides.pickup_name, which the driver sees (push notification,
+        // trip screen), where "your current location" means nothing. Resolve
+        // a real address in the background and swap it in once ready; a ride
+        // requested before this resolves still sends the placeholder, which
+        // the driver-facing surfaces handle with their own distance fallback.
+        setPickup({ lat, lng, name: 'موقعك الحالي' });
         setLocationDenied(false);
+        reverseGeocode(lat, lng).then((name) => {
+          setPickup((prev) => (prev.lat === lat && prev.lng === lng ? { ...prev, name } : prev));
+        });
       } else if (denied) {
         setLocationDenied(true);
       }
