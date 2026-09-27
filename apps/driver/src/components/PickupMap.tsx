@@ -35,7 +35,7 @@ export default function PickupMap({ lat, lng, label }: { lat: number; lng: numbe
           <View style={styles.pinStem} />
         </View>
         <View style={styles.attribution}>
-          <Text style={styles.attributionText}>© OpenStreetMap</Text>
+          <Text style={styles.attributionText}>© OpenStreetMap © CARTO</Text>
         </View>
       </Pressable>
       <Pressable onPress={openInMaps} style={styles.navBtn}>

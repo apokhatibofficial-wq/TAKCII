@@ -75,9 +75,16 @@ export default function MapView({ markers, routeGeometry, onMapClick }: MapViewP
   useEffect(() => {
     if (!nodeRef.current || mapRef.current) return;
     const map = L.map(nodeRef.current, { zoomControl: true }).setView(CITY_CENTER, 13);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // CARTO's basemap CDN, not tile.openstreetmap.org directly: OSM's own
+    // tile servers are volunteer-run and explicitly disallow embedding in
+    // an app with a real user base -- see apps/driver/src/lib/tiles.ts,
+    // whose direct osm.org tiles started coming back "Access blocked" once
+    // this app had real production traffic. CARTO's basemaps are rendered
+    // from OSM data and are meant for exactly this kind of embedding.
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
+      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
     map.on('click', (e: L.LeafletMouseEvent) => onMapClickRef.current?.(e.latlng.lat, e.latlng.lng));
     mapRef.current = map;
