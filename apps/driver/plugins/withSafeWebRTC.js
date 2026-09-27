@@ -1,6 +1,11 @@
 const path = require('path');
 const fs = require('fs');
-const { withMainApplication, withDangerousMod } = require('@expo/config-plugins');
+const {
+  withMainApplication,
+  withDangerousMod,
+  withSettingsGradle,
+  withAppBuildGradle,
+} = require('@expo/config-plugins');
 
 // react-native-webrtc bundles a large native library (libjingle_peerconnection_so.so)
 // that has real, documented compatibility problems on some older/OEM Android builds
@@ -54,6 +59,40 @@ class SafeReactPackage(private val delegate: ReactPackage) : ReactPackage {
       return config;
     },
   ]);
+
+  // react-native.config.js excludes react-native-webrtc from Android autolinking
+  // so PackageList.java doesn't eagerly construct it (see comment above), but this
+  // project's autolinking is the Gradle-plugin-driven kind (expo-autolinking-settings
+  // invoking the RN CLI's config command), which has no static per-package include(...)
+  // text to selectively keep -- excluding a package removes it from the Gradle module
+  // graph entirely, not just from PackageList.java. These two mods manually restore the
+  // Gradle wiring (settings.gradle + app/build.gradle) so ':react-native-webrtc' still
+  // compiles as a project dependency; only its *autolinked registration* stays removed,
+  // which is what MainApplication.kt re-adds by hand below, wrapped in try/catch.
+  config = withSettingsGradle(config, (config) => {
+    const marker = "include ':app'";
+    if (config.modResults.contents.includes(marker) && !config.modResults.contents.includes("':react-native-webrtc'")) {
+      config.modResults.contents = config.modResults.contents.replace(
+        marker,
+        `${marker}
+include ':react-native-webrtc'
+project(':react-native-webrtc').projectDir = new File(rootDir, '../node_modules/react-native-webrtc/android')`
+      );
+    }
+    return config;
+  });
+
+  config = withAppBuildGradle(config, (config) => {
+    const marker = 'dependencies {';
+    if (config.modResults.contents.includes(marker) && !config.modResults.contents.includes("project(':react-native-webrtc')")) {
+      config.modResults.contents = config.modResults.contents.replace(
+        marker,
+        `${marker}
+    implementation project(':react-native-webrtc')`
+      );
+    }
+    return config;
+  });
 
   return withMainApplication(config, (config) => {
     let contents = config.modResults.contents;
