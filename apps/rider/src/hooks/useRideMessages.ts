@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { notifyNewMessage } from '@takc/shared';
 
 export interface RideMessage {
   id: string;
@@ -54,7 +55,8 @@ export function useRideMessages(rideId: string | null) {
     if (!rideId || !body.trim()) return;
     setSending(true);
     try {
-      await supabase.rpc('send_ride_message', { p_ride_id: rideId, p_body: body.trim() });
+      const { data } = await supabase.rpc('send_ride_message', { p_ride_id: rideId, p_body: body.trim() });
+      if (data) notifyNewMessage(supabase, data.id);
     } finally {
       setSending(false);
     }

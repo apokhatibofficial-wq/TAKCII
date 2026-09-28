@@ -9,3 +9,10 @@ import type { Database } from './database.types';
 export function notifyRideChange(supabase: SupabaseClient<Database>, rideId: string): void {
   supabase.functions.invoke('send-ride-notification', { body: { rideId } }).catch(() => undefined);
 }
+
+// Same fire-and-forget pattern, for the other party's push notification
+// after send_ride_message() succeeds -- the Edge Function re-reads the
+// message itself to decide who gets notified, saying what.
+export function notifyNewMessage(supabase: SupabaseClient<Database>, messageId: string): void {
+  supabase.functions.invoke('send-message-notification', { body: { messageId } }).catch(() => undefined);
+}

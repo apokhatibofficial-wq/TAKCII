@@ -7,18 +7,12 @@
 // migrations 0007/0010), so each of their call sites just invokes this
 // function once afterwards instead of duplicating that fan-out server-side.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import webpush from 'npm:web-push@3.6.7';
+import { sendPushToUser } from '../_shared/push.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
-
-const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
-const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails('mailto:apokhatib.official@gmail.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-}
 
 interface RideNotification {
   targetUserId: string;
@@ -114,38 +108,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ sent: false }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
     }
 
-    const { data: subs } = await admin.from('push_subscriptions').select('*').eq('user_id', notification.targetUserId);
-    const staleIds: string[] = [];
-
-    await Promise.all(
-      (subs ?? []).map(async (sub) => {
-        if (sub.platform === 'expo' && sub.expo_token) {
-          await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ to: sub.expo_token, title: notification.title, body: notification.body, data: { rideId } })
-          }).catch(() => undefined);
-          return;
-        }
-        if (sub.platform === 'web' && sub.web_endpoint && sub.web_p256dh && sub.web_auth && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-          try {
-            await webpush.sendNotification(
-              { endpoint: sub.web_endpoint, keys: { p256dh: sub.web_p256dh, auth: sub.web_auth } },
-              JSON.stringify({ title: notification.title, body: notification.body, rideId })
-            );
-          } catch (err) {
-            // 404/410 means the browser subscription is gone for good
-            // (uninstalled, cleared site data) — stop trying it.
-            const status = (err as { statusCode?: number }).statusCode;
-            if (status === 404 || status === 410) staleIds.push(sub.id as string);
-          }
-        }
-      })
-    );
-
-    if (staleIds.length) {
-      await admin.from('push_subscriptions').delete().in('id', staleIds);
-    }
+    await sendPushToUser(admin, notification.targetUserId, notification.title, notification.body, { rideId });
 
     return new Response(JSON.stringify({ sent: true }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   } catch (e) {
