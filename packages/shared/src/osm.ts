@@ -12,7 +12,10 @@
 // already embeds its Supabase anon key -- not a server-side secret, so no env
 // var indirection needed. Free tier: 5M requests/month non-commercial.
 const CARTO_API_KEY = 'cb1_42g6_1_34048eda48053fbbc2d2b0d0';
-const CARTO_STYLE = 'light_all';
+// 'voyager' (colorful: green parks, blue water, road-type colors) instead of
+// 'light_all'/Positron (deliberately near-monochrome) -- closer to what the
+// old tile.openstreetmap.org default looked like, which is what users expect.
+const CARTO_STYLE = 'voyager';
 
 /** z/x/y accept a Leaflet-style literal placeholder (e.g. '{z}') as well as a real tile index. */
 export function cartoTileUrl(z: number | string, x: number | string, y: number | string): string {
