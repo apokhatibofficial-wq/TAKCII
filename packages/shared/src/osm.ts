@@ -3,6 +3,22 @@
 // the prototype's localStorage cache is replaced by the shared `places` table plus
 // whatever offline strategy the rider app's service worker applies).
 
+// Basemap raster tiles for both apps' map displays (rider's Leaflet map, driver's
+// PickupMap preview) -- CARTO's tiles are rendered from OSM data but, unlike
+// tile.openstreetmap.org itself, are meant for embedding in an app with real
+// traffic. This key is a client-embeddable "publishable" key by CARTO's own
+// design (see https://carto.com/basemaps/apikey -- protected by usage caps and
+// optional referrer/IP restriction, not secrecy), the same way this project
+// already embeds its Supabase anon key -- not a server-side secret, so no env
+// var indirection needed. Free tier: 5M requests/month non-commercial.
+const CARTO_API_KEY = 'cb1_42g6_1_34048eda48053fbbc2d2b0d0';
+const CARTO_STYLE = 'light_all';
+
+/** z/x/y accept a Leaflet-style literal placeholder (e.g. '{z}') as well as a real tile index. */
+export function cartoTileUrl(z: number | string, x: number | string, y: number | string): string {
+  return `https://basemaps.cartocdn.com/rastertiles/${CARTO_STYLE}/${z}/${x}/${y}.png?key=${CARTO_API_KEY}`;
+}
+
 export interface AreaDef {
   key: string;
   name: string;

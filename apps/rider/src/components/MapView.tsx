@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { CITY_CENTER } from '@takc/shared';
+import { CITY_CENTER, cartoTileUrl } from '@takc/shared';
 import taxiMarkerUrl from '../assets/taxi-marker.png';
 
 export interface MapMarker {
@@ -75,15 +75,16 @@ export default function MapView({ markers, routeGeometry, onMapClick }: MapViewP
   useEffect(() => {
     if (!nodeRef.current || mapRef.current) return;
     const map = L.map(nodeRef.current, { zoomControl: true }).setView(CITY_CENTER, 13);
-    // CARTO's basemap CDN, not tile.openstreetmap.org directly: OSM's own
-    // tile servers are volunteer-run and explicitly disallow embedding in
-    // an app with a real user base -- see apps/driver/src/lib/tiles.ts,
-    // whose direct osm.org tiles started coming back "Access blocked" once
-    // this app had real production traffic. CARTO's basemaps are rendered
-    // from OSM data and are meant for exactly this kind of embedding.
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+    // CARTO's basemap CDN (packages/shared's cartoTileUrl), not
+    // tile.openstreetmap.org directly: OSM's own tile servers are
+    // volunteer-run and explicitly disallow embedding in an app with a real
+    // user base -- see apps/driver/src/lib/tiles.ts, whose direct osm.org
+    // tiles started coming back "Access blocked" once this app had real
+    // production traffic. CARTO's anonymous endpoint has its own limit too
+    // (its own "API KEY REQUIRED" watermark showed up once real traffic hit
+    // it) -- cartoTileUrl uses a real, registered CARTO API key now.
+    L.tileLayer(cartoTileUrl('{z}', '{x}', '{y}'), {
       maxZoom: 19,
-      subdomains: 'abcd',
       attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
     map.on('click', (e: L.LeafletMouseEvent) => onMapClickRef.current?.(e.latlng.lat, e.latlng.lng));

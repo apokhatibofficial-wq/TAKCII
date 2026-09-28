@@ -1,16 +1,17 @@
+import { cartoTileUrl } from '@takc/shared';
+
 // Web Mercator tile math (the standard OSM/Google XYZ scheme) — lets the
 // pickup preview render a real map from raster tile images with no map
 // SDK/native dependency, consistent with the rest of this project's
 // OSM-data-based approach (packages/shared/src/osm.ts). Tiles come from
-// CARTO's free basemap CDN, not tile.openstreetmap.org directly: OSM's own
-// tile servers are volunteer-run and explicitly disallow embedding in an
-// app with a real user base (osm.wiki/Blocked is exactly what an app like
-// this one gets back once traffic looks like production usage, which is
-// what happened here) -- CARTO's basemaps are rendered from OSM data but
-// are meant for exactly this kind of embedding, still free, still no API
-// key. See https://github.com/CartoDB/basemap-styles for the terms.
+// CARTO's basemap CDN (packages/shared's cartoTileUrl), not
+// tile.openstreetmap.org directly: OSM's own tile servers are volunteer-run
+// and explicitly disallow embedding in an app with a real user base
+// (osm.wiki/Blocked is exactly what this app got back once traffic looked
+// like production usage). CARTO's anonymous endpoint has its own limit too
+// (its own "API KEY REQUIRED" watermark showed up once real traffic hit
+// it) -- cartoTileUrl uses a real, registered CARTO API key now.
 const TILE_SIZE = 256;
-const CARTO_SUBDOMAINS = ['a', 'b', 'c', 'd'];
 
 function lonToPixelX(lon: number, zoom: number): number {
   return ((lon + 180) / 360) * 2 ** zoom * TILE_SIZE;
@@ -40,8 +41,7 @@ export function buildTileGrid(lat: number, lng: number, zoom: number): TileGrid 
     for (let dx = -1; dx <= 1; dx++) {
       const tx = centerTx + dx;
       const ty = centerTy + dy;
-      const subdomain = CARTO_SUBDOMAINS[(tx + ty) % CARTO_SUBDOMAINS.length];
-      tiles.push({ x: tx, y: ty, url: `https://${subdomain}.basemaps.cartocdn.com/light_all/${zoom}/${tx}/${ty}.png` });
+      tiles.push({ x: tx, y: ty, url: cartoTileUrl(zoom, tx, ty) });
     }
   }
 
